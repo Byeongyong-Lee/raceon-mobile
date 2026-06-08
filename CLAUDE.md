@@ -16,6 +16,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **tailwindcss**: (nativewind peer dep) — 유틸리티 기반 스타일링
 - **@react-navigation/native**: 네비게이션 컨테이너
 - **@react-navigation/bottom-tabs**: 하단 탭 네비게이터
+- **@react-navigation/native-stack**: 스택 네비게이터 (설정 화면)
 - **react-native-screens**: 네이티브 화면 최적화
 - **@react-native-seoul/naver-login**: 네이버 소셜 로그인
 - **@react-native-kakao/core**, **@react-native-kakao/user**: 카카오 소셜 로그인
@@ -26,14 +27,18 @@ React Native CLI 프로젝트 (raceon-mobile)
 
 ```
 raceon-mobile/
-├── App.tsx                          # 루트 컴포넌트 (NavigationContainer)
+├── App.tsx                          # 루트 컴포넌트 (NavigationContainer + UserProvider)
 ├── index.js                         # 앱 진입점
 ├── src/
+│   ├── context/
+│   │   └── UserContext.tsx          # 유저 상태 전역 관리
 │   ├── navigation/
+│   │   ├── RootNavigator.tsx        # Stack 네비게이터 (루트)
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터
 │   └── screens/
 │       ├── RaceListScreen.tsx       # 대회 일정 화면
-│       └── MyRacesScreen.tsx        # 내 대회 화면
+│       ├── MyRacesScreen.tsx        # 내 대회 화면
+│       └── SettingsScreen.tsx       # 설정 화면
 ├── android/                         # Android 네이티브 코드
 ├── ios/                             # iOS 네이티브 코드
 └── __tests__/                       # 테스트 파일
@@ -66,12 +71,15 @@ npm run test
 |------|-----------|------|--------|
 | 대회 일정 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 (더미 데이터) | 2026-06-06 |
 | 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 (빈 상태) | 2026-06-06 |
+| 설정 | `src/screens/SettingsScreen.tsx` | 프로필·로그아웃·앱 정보 | 2026-06-08 |
 
 ## 네비게이션 구조
 
-Bottom Tab Navigator (AppNavigator.tsx)
-- 🗓️ 대회 일정 → RaceListScreen
-- 🏅 내 대회 → MyRacesScreen
+RootNavigator (Stack)
+- MainTabs (AppNavigator) → Bottom Tab
+  - 🗓️ 대회 일정 → RaceListScreen
+  - 🏅 내 대회 → MyRacesScreen
+- Settings → SettingsScreen (프로필 이미지 클릭 시 이동)
 
 ## 스타일링
 

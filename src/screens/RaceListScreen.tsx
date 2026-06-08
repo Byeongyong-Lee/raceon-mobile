@@ -3,6 +3,10 @@ import NaverLogin, {NaverLoginResponse} from '@react-native-seoul/naver-login';
 import {login as kakaoLogin, me as getKakaoMe} from '@react-native-kakao/user';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import Config from 'react-native-config';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useUser} from '../context/UserContext';
+import {RootStackParamList} from '../navigation/RootNavigator';
 import Svg, {Path, G, ClipPath, Rect, Defs} from 'react-native-svg';
 import {
   ActivityIndicator,
@@ -89,9 +93,11 @@ function getDay(raceDate: string): string {
 function Header({
   user,
   onPersonPress,
+  onSettingsPress,
 }: {
   user: User | null;
   onPersonPress: () => void;
+  onSettingsPress: () => void;
 }) {
   return (
     <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
@@ -100,16 +106,18 @@ function Header({
         <Text className="text-2xl font-black text-gray-900">On</Text>
       </View>
       {user ? (
-        user.imageUrl ? (
-          <Image
-            source={{uri: user.imageUrl}}
-            className="h-9 w-9 rounded-full"
-          />
-        ) : (
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
-            <MaterialIcons name="person" size={22} color="#6b7280" />
-          </View>
-        )
+        <TouchableOpacity onPress={onSettingsPress} activeOpacity={0.7}>
+          {user.imageUrl ? (
+            <Image
+              source={{uri: user.imageUrl}}
+              className="h-9 w-9 rounded-full"
+            />
+          ) : (
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
+              <MaterialIcons name="person" size={22} color="#6b7280" />
+            </View>
+          )}
+        </TouchableOpacity>
       ) : (
         <TouchableOpacity
           onPress={onPersonPress}
@@ -595,7 +603,8 @@ function RaceCard({race}: {race: Race}) {
 }
 
 export default function RaceListScreen() {
-  const [user, setUser] = useState<User | null>(null);
+  const {user, setUser} = useUser();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showLoginSheet, setShowLoginSheet] = useState(false);
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
@@ -668,7 +677,11 @@ export default function RaceListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <Header user={user} onPersonPress={() => setShowLoginSheet(true)} />
+      <Header
+        user={user}
+        onPersonPress={() => setShowLoginSheet(true)}
+        onSettingsPress={() => navigation.navigate('Settings')}
+      />
       <LoginSheet
         visible={showLoginSheet}
         onClose={() => setShowLoginSheet(false)}

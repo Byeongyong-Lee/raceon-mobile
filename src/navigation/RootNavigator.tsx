@@ -1,0 +1,36 @@
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import React from 'react';
+import {useUser} from '../context/UserContext';
+import SettingsScreen from '../screens/SettingsScreen';
+import AppNavigator from './AppNavigator';
+
+export type RootStackParamList = {
+  MainTabs: undefined;
+  Settings: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+export default function RootNavigator() {
+  const {user, setUser} = useUser();
+
+  return (
+    <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Screen name="MainTabs" component={AppNavigator} />
+      <Stack.Screen
+        name="Settings"
+        options={{animation: 'slide_from_right'}}>
+        {({navigation}) => (
+          <SettingsScreen
+            user={user}
+            onLogout={() => {
+              setUser(null);
+              navigation.goBack();
+            }}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+    </Stack.Navigator>
+  );
+}
