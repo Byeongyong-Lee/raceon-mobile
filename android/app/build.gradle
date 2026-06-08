@@ -99,7 +99,10 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
-            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            manifestPlaceholders = [
+                usesCleartextTraffic: "true",
+                KAKAO_NATIVE_APP_KEY: project.env.get("KAKAO_NATIVE_APP_KEY") ?: ""
+            ]
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
@@ -107,7 +110,10 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            manifestPlaceholders = [
+                usesCleartextTraffic: "false",
+                KAKAO_NATIVE_APP_KEY: project.env.get("KAKAO_NATIVE_APP_KEY") ?: ""
+            ]
         }
     }
 }
@@ -115,6 +121,7 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    implementation("com.kakao.sdk:v2-common:2.20.1")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
