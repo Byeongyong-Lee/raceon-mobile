@@ -24,5 +24,14 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+      <activity
+        android:name="com.nhn.android.naverlogin.ui.OAuthLoginActivity"
+        android:exported="true"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+      <activity
+        android:name="com.nhn.android.naverlogin.ui.OAuthLoginInAppBrowserActivity"
+        android:exported="true"
+        android:label="OAuth2.0 In-app"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>

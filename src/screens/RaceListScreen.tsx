@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import NaverLogin, {NaverLoginResponse} from '@react-native-seoul/naver-login';
 import Svg, {Path, G, ClipPath, Rect, Defs} from 'react-native-svg';
 import {
   ActivityIndicator,
@@ -36,6 +37,17 @@ type Race = {
 };
 type MyRace = {id: string; name: string; raceDate: string};
 type Ad = {id: string; title: string; subtitle: string; bgColor: string};
+
+const NAVER_CLIENT_ID = 'VLSfOarz2qmdpxSqeSYz';
+const NAVER_CLIENT_SECRET = 'mK7ZUUszh3';
+const NAVER_APP_NAME = 'RaceOn';
+
+NaverLogin.initialize({
+  appName: NAVER_APP_NAME,
+  consumerKey: NAVER_CLIENT_ID,
+  consumerSecret: NAVER_CLIENT_SECRET,
+  serviceUrlSchemeIOS: 'com.raceonmobile',
+});
 
 const DUMMY_USER: User = {name: '이병용', imageUrl: 'https://i.pravatar.cc/150?img=3'};
 
@@ -581,8 +593,23 @@ export default function RaceListScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (provider: SocialProvider) => {
-    // 실제 소셜 SDK 연동 전 더미 처리
+  const handleLogin = async (provider: SocialProvider) => {
+    if (provider === 'naver') {
+      const result: NaverLoginResponse = await NaverLogin.login();
+      if (result.isSuccess && result.successResponse) {
+        const token = result.successResponse.accessToken;
+        const profile = await NaverLogin.getProfile(token);
+        if (profile.message === 'success') {
+          setUser({
+            name: profile.response.name ?? '네이버 사용자',
+            imageUrl: profile.response.profile_image ?? null,
+          });
+          setShowLoginSheet(false);
+        }
+      }
+      return;
+    }
+    // Google / Kakao — 추후 연동
     console.log(`${provider} 로그인 시도`);
     setUser(DUMMY_USER);
     setShowLoginSheet(false);
