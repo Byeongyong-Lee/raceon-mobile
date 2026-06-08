@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import NaverLogin, {NaverLoginResponse} from '@react-native-seoul/naver-login';
 import {login as kakaoLogin, me as getKakaoMe} from '@react-native-kakao/user';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
+import Config from 'react-native-config';
 import Svg, {Path, G, ClipPath, Rect, Defs} from 'react-native-svg';
 import {
   ActivityIndicator,
@@ -40,18 +41,14 @@ type Race = {
 type MyRace = {id: string; name: string; raceDate: string};
 type Ad = {id: string; title: string; subtitle: string; bgColor: string};
 
-const NAVER_CLIENT_ID = 'VLSfOarz2qmdpxSqeSYz';
-const NAVER_CLIENT_SECRET = 'mK7ZUUszh3';
-const NAVER_APP_NAME = 'RaceOn';
-
 GoogleSignin.configure({
-  webClientId: '435289850796-k81ai0vr606pht8kmeder4fis8u483tk.apps.googleusercontent.com',
+  webClientId: Config.GOOGLE_WEB_CLIENT_ID,
 });
 
 NaverLogin.initialize({
-  appName: NAVER_APP_NAME,
-  consumerKey: NAVER_CLIENT_ID,
-  consumerSecret: NAVER_CLIENT_SECRET,
+  appName: 'RaceOn',
+  consumerKey: Config.NAVER_CLIENT_ID!,
+  consumerSecret: Config.NAVER_CLIENT_SECRET!,
   serviceUrlSchemeIOS: 'com.raceonmobile',
 });
 

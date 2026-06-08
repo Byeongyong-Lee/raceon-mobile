@@ -20,6 +20,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **@react-native-seoul/naver-login**: 네이버 소셜 로그인
 - **@react-native-kakao/core**, **@react-native-kakao/user**: 카카오 소셜 로그인
 - **@react-native-google-signin/google-signin**: 구글 소셜 로그인
+- **react-native-config**: `.env` 파일로 민감 정보 관리 (`.env`는 `.gitignore`에 포함)
 
 ## 프로젝트 구조
 
