@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const AD_WIDTH = SCREEN_WIDTH - 32;
@@ -150,6 +150,7 @@ function LoginSheet({
   onClose: () => void;
   onLogin: (provider: SocialProvider) => void;
 }) {
+  const {bottom: bottomInset} = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(600)).current;
 
   useEffect(() => {
@@ -184,7 +185,7 @@ function LoginSheet({
         />
         {/* 시트 본체 — 열릴 때만 슬라이드, 닫힐 때 즉시 사라짐 */}
         <Animated.View style={{transform: [{translateY: slideAnim}]}}>
-        <View className="rounded-t-3xl bg-white px-6 pb-12 pt-4">
+        <View className="rounded-t-3xl bg-white px-6 pt-4" style={{paddingBottom: Math.max(bottomInset, 24) + 16}}>
           {/* 드래그 핸들 */}
           <View className="mb-8 h-1 w-10 self-center rounded-full bg-gray-200" />
 

@@ -1,6 +1,7 @@
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import React from 'react';
 import {Text} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MyRacesScreen from '../screens/MyRacesScreen';
 import RaceListScreen from '../screens/RaceListScreen';
 
@@ -15,6 +16,7 @@ function TabIcon({emoji, focused}: {emoji: string; focused: boolean}) {
 }
 
 export default function AppNavigator() {
+  const {bottom: bottomInset} = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -22,8 +24,8 @@ export default function AppNavigator() {
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopColor: '#f3f4f6',
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + bottomInset,
+          paddingBottom: 8 + bottomInset,
         },
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: '#9ca3af',
