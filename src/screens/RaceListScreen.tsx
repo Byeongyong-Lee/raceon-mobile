@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Modal,
   ScrollView,
   Text,
@@ -99,9 +100,16 @@ function Header({
         <Text className="text-2xl font-black text-gray-900">On</Text>
       </View>
       {user ? (
-        <Text className="text-sm font-semibold text-gray-800">
-          {user.name}님 환영합니다.
-        </Text>
+        user.imageUrl ? (
+          <Image
+            source={{uri: user.imageUrl}}
+            className="h-9 w-9 rounded-full"
+          />
+        ) : (
+          <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
+            <MaterialIcons name="person" size={22} color="#6b7280" />
+          </View>
+        )
       ) : (
         <TouchableOpacity
           onPress={onPersonPress}
