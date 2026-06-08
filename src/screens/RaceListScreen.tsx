@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import NaverLogin, {NaverLoginResponse} from '@react-native-seoul/naver-login';
 import {login as kakaoLogin, me as getKakaoMe} from '@react-native-kakao/user';
+import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import Svg, {Path, G, ClipPath, Rect, Defs} from 'react-native-svg';
 import {
   ActivityIndicator,
@@ -42,6 +43,10 @@ type Ad = {id: string; title: string; subtitle: string; bgColor: string};
 const NAVER_CLIENT_ID = 'VLSfOarz2qmdpxSqeSYz';
 const NAVER_CLIENT_SECRET = 'mK7ZUUszh3';
 const NAVER_APP_NAME = 'RaceOn';
+
+GoogleSignin.configure({
+  webClientId: '435289850796-k81ai0vr606pht8kmeder4fis8u483tk.apps.googleusercontent.com',
+});
 
 NaverLogin.initialize({
   appName: NAVER_APP_NAME,
@@ -620,10 +625,18 @@ export default function RaceListScreen() {
       setShowLoginSheet(false);
       return;
     }
-    // Google — 추후 연동
-    console.log(`${provider} 로그인 시도`);
-    setUser(DUMMY_USER);
-    setShowLoginSheet(false);
+    if (provider === 'google') {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      if (response.type === 'success') {
+        const {name, photo} = response.data.user;
+        setUser({
+          name: name ?? 'Google 사용자',
+          imageUrl: photo ?? null,
+        });
+        setShowLoginSheet(false);
+      }
+    }
   };
 
   useEffect(() => {
