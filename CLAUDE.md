@@ -18,6 +18,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **@react-navigation/bottom-tabs**: 하단 탭 네비게이터
 - **react-native-screens**: 네이티브 화면 최적화
 - **@react-native-seoul/naver-login**: 네이버 소셜 로그인
+- **@react-native-kakao/core**, **@react-native-kakao/user**: 카카오 소셜 로그인
 
 ## 프로젝트 구조
 

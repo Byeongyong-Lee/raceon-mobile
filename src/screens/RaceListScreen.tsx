@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import NaverLogin, {NaverLoginResponse} from '@react-native-seoul/naver-login';
+import {login as kakaoLogin, me as getKakaoMe} from '@react-native-kakao/user';
 import Svg, {Path, G, ClipPath, Rect, Defs} from 'react-native-svg';
 import {
   ActivityIndicator,
@@ -609,7 +610,17 @@ export default function RaceListScreen() {
       }
       return;
     }
-    // Google / Kakao — 추후 연동
+    if (provider === 'kakao') {
+      await kakaoLogin();
+      const profile = await getKakaoMe();
+      setUser({
+        name: profile.nickname ?? '카카오 사용자',
+        imageUrl: profile.profileImageUrl ?? null,
+      });
+      setShowLoginSheet(false);
+      return;
+    }
+    // Google — 추후 연동
     console.log(`${provider} 로그인 시도`);
     setUser(DUMMY_USER);
     setShowLoginSheet(false);

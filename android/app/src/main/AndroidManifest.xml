@@ -3,6 +3,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <queries>
+        <package android:name="com.kakao.talk" />
+    </queries>
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
@@ -22,6 +26,16 @@
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+      </activity>
+      <activity
+        android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.intent.action.VIEW" />
+          <category android:name="android.intent.category.DEFAULT" />
+          <category android:name="android.intent.category.BROWSABLE" />
+          <data android:host="oauth" android:scheme="kakaobbe67717df1bc79f1910ca49c598dd5f" />
         </intent-filter>
       </activity>
       <activity
