@@ -18,7 +18,7 @@ const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const AD_WIDTH = SCREEN_WIDTH - 32;
 const MONTH_ITEM_W = Math.floor(SCREEN_WIDTH / 5);
 const MONTH_SIDE_PAD = Math.floor((SCREEN_WIDTH - MONTH_ITEM_W) / 2);
-4
+
 const BASE_URL = 'http://10.0.2.2:18300';
 
 type User = {name: string; imageUrl: string | null};
@@ -291,18 +291,19 @@ function LoginSheet({
 
 function AdSlider() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [sliderWidth, setSliderWidth] = useState(AD_WIDTH);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveIndex(prev => {
         const next = (prev + 1) % ADS.length;
-        scrollRef.current?.scrollTo({x: next * AD_WIDTH, animated: true});
+        scrollRef.current?.scrollTo({x: next * sliderWidth, animated: true});
         return next;
       });
     }, 3000);
     return () => clearInterval(timer);
-  }, []);
+  }, [sliderWidth]);
 
   return (
     <View className="mx-4 mb-3 overflow-hidden rounded-2xl" style={{height: 140}}>
@@ -312,13 +313,14 @@ function AdSlider() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
+        onLayout={e => setSliderWidth(e.nativeEvent.layout.width)}
         onMomentumScrollEnd={e =>
-          setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / AD_WIDTH))
+          setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / sliderWidth))
         }>
         {ADS.map(ad => (
           <View
             key={ad.id}
-            style={{width: AD_WIDTH, backgroundColor: ad.bgColor}}
+            style={{width: sliderWidth, backgroundColor: ad.bgColor}}
             className="items-center justify-center px-8">
             <Text className="text-center text-xl font-bold text-white">{ad.title}</Text>
             <Text
