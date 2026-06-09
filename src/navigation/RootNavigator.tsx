@@ -15,7 +15,7 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const {user, setUser} = useUser();
+  const {user, logout} = useUser();
 
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
@@ -27,7 +27,7 @@ export default function RootNavigator() {
           <SettingsScreen
             user={user}
             onLogout={() => {
-              setUser(null);
+              logout();
               navigation.goBack();
             }}
             onBack={() => navigation.goBack()}

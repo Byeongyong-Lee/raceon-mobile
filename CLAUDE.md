@@ -23,6 +23,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **@react-native-google-signin/google-signin**: 구글 소셜 로그인
 - **react-native-config**: 환경별 `.env` 파일로 민감 정보 및 설정 관리 (`.env.local`, `.env.dev`, `.env.prod`는 `.gitignore`에 포함)
 - **cross-env**: Windows 호환 환경변수 설정 (npm 스크립트에서 `ENVFILE` 전달 시 사용)
+- **@react-native-async-storage/async-storage**: JWT 토큰 영구 저장
 
 ## 프로젝트 구조
 
@@ -38,9 +39,13 @@ raceon-mobile/
 │   │   ├── RaceCard.tsx             # 대회 카드
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
 │   ├── context/
-│   │   └── UserContext.tsx          # 유저 상태 전역 관리
+│   │   └── UserContext.tsx          # 유저·토큰·내 대회 전역 상태 관리
 │   ├── hooks/
-│   │   └── useLogin.ts              # 소셜 로그인 공통 훅
+│   │   └── useLogin.ts              # 소셜 로그인 공통 훅 (소셜 SDK → 서버 API → 토큰 저장)
+│   ├── services/
+│   │   ├── apiClient.ts             # Bearer 토큰 자동 첨부 fetch 래퍼
+│   │   ├── authApi.ts               # POST /api/auth/{provider} — JWT 발급
+│   │   └── tokenStorage.ts          # AsyncStorage 기반 JWT 저장/조회/삭제
 │   ├── navigation/
 │   │   ├── RootNavigator.tsx        # Stack 네비게이터 (루트)
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터

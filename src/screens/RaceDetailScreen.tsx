@@ -94,8 +94,8 @@ function MapButtons({location}: {location: string}) {
 
 export default function RaceDetailScreen({route, navigation}: Props) {
   const {race} = route.params;
-  const {user} = useUser();
-  const [myRaceAdded, setMyRaceAdded] = useState(false);
+  const {user, addMyRace, removeMyRace, isMyRace} = useUser();
+  const myRaceAdded = isMyRace(race.id);
   const [showLoginSheet, setShowLoginSheet] = useState(false);
   const {handleLogin} = useLogin(() => setShowLoginSheet(false));
 
@@ -104,7 +104,11 @@ export default function RaceDetailScreen({route, navigation}: Props) {
       setShowLoginSheet(true);
       return;
     }
-    setMyRaceAdded(prev => !prev);
+    if (myRaceAdded) {
+      removeMyRace(race.id);
+    } else {
+      addMyRace(race);
+    }
   };
 
   return (

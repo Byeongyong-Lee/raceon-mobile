@@ -8,10 +8,8 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
-type User = {name: string; imageUrl: string | null};
-
 type Props = {
-  user: User | null;
+  user: {name: string; imageUrl: string | null} | null;
   onLogout: () => void;
   onBack: () => void;
 };

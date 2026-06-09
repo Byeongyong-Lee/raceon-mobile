@@ -7,6 +7,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useUser} from '../context/UserContext';
 import {RootStackParamList} from '../navigation/RootNavigator';
 import {useLogin} from '../hooks/useLogin';
+import {apiFetch} from '../services/apiClient';
 import {
   ActivityIndicator,
   FlatList,
@@ -25,11 +26,6 @@ import YearMonthPicker from '../components/YearMonthPicker';
 import {Race} from '../types';
 import {formatDate, getDdayLabel} from '../utils/race';
 
-const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:18300';
-
-type User = {name: string; imageUrl: string | null};
-type MyRace = {id: string; name: string; raceDate: string};
-
 GoogleSignin.configure({
   webClientId: Config.GOOGLE_WEB_CLIENT_ID,
 });
@@ -41,18 +37,13 @@ NaverLogin.initialize({
   serviceUrlSchemeIOS: 'com.raceonmobile',
 });
 
-// 신청한 대회 더미 데이터 (추후 API 연동)
-const MY_RACES: MyRace[] = [
-  {id: '4', name: '춘천마라톤', raceDate: '2026-10-25'},
-  {id: '5', name: '부산마라톤', raceDate: '2026-11-08'},
-];
 
 function Header({
   user,
   onPersonPress,
   onSettingsPress,
 }: {
-  user: User | null;
+  user: {name: string; imageUrl: string | null} | null;
   onPersonPress: () => void;
   onSettingsPress: () => void;
 }) {
@@ -87,9 +78,11 @@ function Header({
 function DdaySection({
   isLoggedIn,
   onLoginPress,
+  myRaces,
 }: {
   isLoggedIn: boolean;
   onLoginPress: () => void;
+  myRaces: Race[];
 }) {
   return (
     <View className="mb-3">
@@ -104,14 +97,14 @@ function DdaySection({
             <Text style={{fontSize: 12, fontWeight: '700', color: 'white'}}>로그인</Text>
           </TouchableOpacity>
         </View>
-      ) : MY_RACES.length === 0 ? (
+      ) : myRaces.length === 0 ? (
         <Text className="px-4 text-sm text-gray-400">신청한 대회가 없어요</Text>
       ) : (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{paddingHorizontal: 16, gap: 10}}>
-          {MY_RACES.map(race => {
+          {myRaces.map(race => {
             const label = getDdayLabel(race.raceDate);
             const isPast = label.startsWith('D+');
             return (
@@ -145,7 +138,7 @@ function DdaySection({
 }
 
 export default function RaceListScreen() {
-  const {user, setUser} = useUser();
+  const {user, myRaces} = useUser();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showLoginSheet, setShowLoginSheet] = useState(false);
   const today = new Date();
@@ -162,13 +155,7 @@ export default function RaceListScreen() {
     setLoading(true);
     setError(null);
     setRaces([]);
-    fetch(`${BASE_URL}/api/races?month=${month}`)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return res.json() as Promise<{success: boolean; data: Race[]; message: string | null}>;
-      })
+    apiFetch<{success: boolean; data: Race[]; message: string | null}>(`/api/races?month=${month}`)
       .then(json => {
         if (!json.success) {
           throw new Error(json.message ?? '서버 오류');
@@ -195,6 +182,7 @@ export default function RaceListScreen() {
       <DdaySection
         isLoggedIn={!!user}
         onLoginPress={() => setShowLoginSheet(true)}
+        myRaces={myRaces}
       />
       <YearMonthPicker
         year={selectedYear}

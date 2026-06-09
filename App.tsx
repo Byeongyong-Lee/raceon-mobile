@@ -1,19 +1,35 @@
 import './global.css';
 import {NavigationContainer} from '@react-navigation/native';
 import React from 'react';
-import {StatusBar} from 'react-native';
+import {ActivityIndicator, StatusBar, View} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {UserProvider} from './src/context/UserContext';
+import {UserProvider, useUser} from './src/context/UserContext';
 import RootNavigator from './src/navigation/RootNavigator';
+
+function AppContent() {
+  const {isReady} = useUser();
+
+  if (!isReady) {
+    return (
+      <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb'}}>
+        <ActivityIndicator size="large" color="#f97316" />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <RootNavigator />
+    </NavigationContainer>
+  );
+}
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
       <UserProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
+        <AppContent />
       </UserProvider>
     </SafeAreaProvider>
   );
