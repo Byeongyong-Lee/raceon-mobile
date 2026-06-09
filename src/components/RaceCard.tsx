@@ -6,29 +6,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/RootNavigator';
 import {Race} from '../types';
 import {getDdayLabel, getDay} from '../utils/race';
-
-function CourseBadges({course, isPast}: {course: string; isPast: boolean}) {
-  const courses = course.split(/[,\/·]/).map(c => c.trim()).filter(Boolean);
-  const visible = courses.slice(0, 4);
-  const hasMore = courses.length > 4;
-  const bgColor = isPast ? '#f3f4f6' : '#ffedd5';
-  const textColor = isPast ? '#9ca3af' : '#ea580c';
-
-  return (
-    <View className="flex-row items-center" style={{gap: 4}}>
-      {visible.map((c, i) => (
-        <View key={i} className="rounded-full px-2 py-0.5" style={{backgroundColor: bgColor}}>
-          <Text className="text-xs font-semibold" style={{color: textColor}}>{c}</Text>
-        </View>
-      ))}
-      {hasMore && (
-        <View className="rounded-full px-2 py-0.5" style={{backgroundColor: bgColor}}>
-          <Text className="text-xs font-semibold" style={{color: textColor}}>···</Text>
-        </View>
-      )}
-    </View>
-  );
-}
+import CourseBadges from './CourseBadges';
 
 export default function RaceCard({race}: {race: Race}) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
