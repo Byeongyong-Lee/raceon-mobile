@@ -31,16 +31,25 @@ raceon-mobile/
 ├── App.tsx                          # 루트 컴포넌트 (NavigationContainer + UserProvider)
 ├── index.js                         # 앱 진입점
 ├── src/
+│   ├── components/
+│   │   ├── AdSlider.tsx             # 광고 배너 슬라이더
+│   │   ├── LoginSheet.tsx           # 소셜 로그인 바텀시트
+│   │   ├── RaceCard.tsx             # 대회 카드
+│   │   └── YearMonthPicker.tsx      # 연/월 선택기
 │   ├── context/
 │   │   └── UserContext.tsx          # 유저 상태 전역 관리
 │   ├── navigation/
 │   │   ├── RootNavigator.tsx        # Stack 네비게이터 (루트)
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터
-│   └── screens/
-│       ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
-│       ├── CalendarScreen.tsx       # 캘린더 화면
-│       ├── MyRacesScreen.tsx        # 내 대회 화면
-│       └── SettingsScreen.tsx       # 설정 화면
+│   ├── screens/
+│   │   ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
+│   │   ├── CalendarScreen.tsx       # 캘린더 화면
+│   │   ├── MyRacesScreen.tsx        # 내 대회 화면
+│   │   └── SettingsScreen.tsx       # 설정 화면
+│   ├── types/
+│   │   └── index.ts                 # 공유 타입 (Race, SocialProvider)
+│   └── utils/
+│       └── race.ts                  # 날짜 유틸 함수 (getDdayLabel 등)
 ├── android/                         # Android 네이티브 코드
 ├── ios/                             # iOS 네이티브 코드
 └── __tests__/                       # 테스트 파일
