@@ -33,6 +33,7 @@ raceon-mobile/
 ├── src/
 │   ├── components/
 │   │   ├── AdSlider.tsx             # 광고 배너 슬라이더
+│   │   ├── CourseBadges.tsx         # 코스 배지 (RaceCard·RaceDetail 공유)
 │   │   ├── LoginSheet.tsx           # 소셜 로그인 바텀시트
 │   │   ├── RaceCard.tsx             # 대회 카드
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
@@ -43,6 +44,7 @@ raceon-mobile/
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터
 │   ├── screens/
 │   │   ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
+│   │   ├── RaceDetailScreen.tsx     # 대회 상세 (정보·지도·내 대회 추가)
 │   │   ├── CalendarScreen.tsx       # 캘린더 화면
 │   │   ├── MyRacesScreen.tsx        # 내 대회 화면
 │   │   └── SettingsScreen.tsx       # 설정 화면
@@ -104,7 +106,7 @@ npm run test
 | 홈 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 + D-day | 2026-06-06 |
 | 캘린더 | `src/screens/CalendarScreen.tsx` | 대회 일정 달력 (준비 중) | 2026-06-09 |
 | 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 (빈 상태) | 2026-06-06 |
-| 대회 상세 | `src/screens/RaceDetailScreen.tsx` | 대회 상세 정보 (장소·주최·연락처·링크) | 2026-06-09 |
+| 대회 상세 | `src/screens/RaceDetailScreen.tsx` | 대회 상세 정보·지도 연결·내 대회 추가 | 2026-06-09 |
 | 설정 | `src/screens/SettingsScreen.tsx` | 프로필·로그아웃·앱 정보 | 2026-06-08 |
 
 ## 네비게이션 구조
