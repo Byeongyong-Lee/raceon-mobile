@@ -21,7 +21,8 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **@react-native-seoul/naver-login**: 네이버 소셜 로그인
 - **@react-native-kakao/core**, **@react-native-kakao/user**: 카카오 소셜 로그인
 - **@react-native-google-signin/google-signin**: 구글 소셜 로그인
-- **react-native-config**: `.env` 파일로 민감 정보 관리 (`.env`는 `.gitignore`에 포함)
+- **react-native-config**: 환경별 `.env` 파일로 민감 정보 및 설정 관리 (`.env.local`, `.env.dev`, `.env.prod`는 `.gitignore`에 포함)
+- **cross-env**: Windows 호환 환경변수 설정 (npm 스크립트에서 `ENVFILE` 전달 시 사용)
 
 ## 프로젝트 구조
 
@@ -47,14 +48,20 @@ raceon-mobile/
 ## 개발 명령어
 
 ```bash
-# Android 실행
-npm run android
-
-# iOS 실행
-npm run ios
-
-# Metro 번들러 시작
+# Metro 번들러 먼저 시작 (터미널 탭 1)
 npm run start
+
+# Android 실행 (터미널 탭 2) — --no-packager로 새 창 없이 실행
+npm run android           # 로컬 환경 (.env.local, 기본값)
+npm run android:local     # 로컬 환경 (.env.local)
+npm run android:dev       # 개발 서버 (.env.dev)
+npm run android:prod      # 프로덕션 (.env.prod)
+
+# iOS 실행 (터미널 탭 2)
+npm run ios               # 로컬 환경 (.env.local, 기본값)
+npm run ios:local         # 로컬 환경 (.env.local)
+npm run ios:dev           # 개발 서버 (.env.dev)
+npm run ios:prod          # 프로덕션 (.env.prod)
 
 # 린트
 npm run lint
@@ -62,6 +69,21 @@ npm run lint
 # 테스트
 npm run test
 ```
+
+> `android`/`ios` 스크립트는 모두 `--no-packager` 포함. Metro를 먼저 띄운 뒤 실행해야 한다.  
+> Windows에서 `ENVFILE` 환경변수 전달은 `cross-env`로 처리한다.
+
+## 환경 설정
+
+`react-native-config`로 환경별 `.env` 파일을 관리한다. `ENVFILE` 환경변수로 파일을 선택한다.
+
+| 파일 | 용도 | `API_BASE_URL` |
+|------|------|----------------|
+| `.env.local` | 로컬 개발 | `http://192.168.x.x:18300` |
+| `.env.dev` | 개발 서버 | `https://dev-api.raceon.com` |
+| `.env.prod` | 프로덕션 | `https://api.raceon.com` |
+
+공통 키: `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `KAKAO_NATIVE_APP_KEY`, `GOOGLE_WEB_CLIENT_ID`, `API_BASE_URL`
 
 ## 화면 목록
 

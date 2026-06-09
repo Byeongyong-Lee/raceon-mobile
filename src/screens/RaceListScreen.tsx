@@ -28,7 +28,7 @@ const AD_WIDTH = SCREEN_WIDTH - 32;
 const MONTH_ITEM_W = Math.floor(SCREEN_WIDTH / 5);
 const MONTH_SIDE_PAD = Math.floor((SCREEN_WIDTH - MONTH_ITEM_W) / 2);
 
-const BASE_URL = 'http://10.0.2.2:18300';
+const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:18300';
 
 type User = {name: string; imageUrl: string | null};
 type Race = {
@@ -383,11 +383,27 @@ function AdSlider() {
   );
 }
 
-function DdaySection() {
+function DdaySection({
+  isLoggedIn,
+  onLoginPress,
+}: {
+  isLoggedIn: boolean;
+  onLoginPress: () => void;
+}) {
   return (
     <View className="mb-3">
       <Text className="mb-2 px-4 text-sm font-bold text-gray-700">내 대회 D-day</Text>
-      {MY_RACES.length === 0 ? (
+      {!isLoggedIn ? (
+        <View style={{marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12}}>
+          <Text style={{fontSize: 13, color: '#9ca3af'}}>로그인이 필요한 내용이에요</Text>
+          <TouchableOpacity
+            onPress={onLoginPress}
+            activeOpacity={0.8}
+            style={{backgroundColor: '#f97316', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 6}}>
+            <Text style={{fontSize: 12, fontWeight: '700', color: 'white'}}>로그인</Text>
+          </TouchableOpacity>
+        </View>
+      ) : MY_RACES.length === 0 ? (
         <Text className="px-4 text-sm text-gray-400">신청한 대회가 없어요</Text>
       ) : (
         <ScrollView
@@ -614,42 +630,46 @@ export default function RaceListScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (provider: SocialProvider) => {
-    if (provider === 'naver') {
-      const result: NaverLoginResponse = await NaverLogin.login();
-      if (result.isSuccess && result.successResponse) {
-        const token = result.successResponse.accessToken;
-        const profile = await NaverLogin.getProfile(token);
-        if (profile.message === 'success') {
+    try {
+      if (provider === 'naver') {
+        const result: NaverLoginResponse = await NaverLogin.login();
+        if (result.isSuccess && result.successResponse) {
+          const token = result.successResponse.accessToken;
+          const profile = await NaverLogin.getProfile(token);
+          if (profile.message === 'success') {
+            setUser({
+              name: profile.response.name ?? '네이버 사용자',
+              imageUrl: profile.response.profile_image ?? null,
+            });
+            setShowLoginSheet(false);
+          }
+        }
+        return;
+      }
+      if (provider === 'kakao') {
+        await kakaoLogin();
+        const profile = await getKakaoMe();
+        setUser({
+          name: profile.nickname ?? '카카오 사용자',
+          imageUrl: profile.profileImageUrl ?? null,
+        });
+        setShowLoginSheet(false);
+        return;
+      }
+      if (provider === 'google') {
+        await GoogleSignin.hasPlayServices();
+        const response = await GoogleSignin.signIn();
+        if (response.type === 'success') {
+          const {name, photo} = response.data.user;
           setUser({
-            name: profile.response.name ?? '네이버 사용자',
-            imageUrl: profile.response.profile_image ?? null,
+            name: name ?? 'Google 사용자',
+            imageUrl: photo ?? null,
           });
           setShowLoginSheet(false);
         }
       }
-      return;
-    }
-    if (provider === 'kakao') {
-      await kakaoLogin();
-      const profile = await getKakaoMe();
-      setUser({
-        name: profile.nickname ?? '카카오 사용자',
-        imageUrl: profile.profileImageUrl ?? null,
-      });
-      setShowLoginSheet(false);
-      return;
-    }
-    if (provider === 'google') {
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-      if (response.type === 'success') {
-        const {name, photo} = response.data.user;
-        setUser({
-          name: name ?? 'Google 사용자',
-          imageUrl: photo ?? null,
-        });
-        setShowLoginSheet(false);
-      }
+    } catch (e) {
+      console.error(`[Login] ${provider} 로그인 실패:`, e);
     }
   };
 
@@ -688,7 +708,10 @@ export default function RaceListScreen() {
         onLogin={handleLogin}
       />
       <AdSlider />
-      <DdaySection />
+      <DdaySection
+        isLoggedIn={!!user}
+        onLoginPress={() => setShowLoginSheet(true)}
+      />
       <YearMonthPicker
         year={selectedYear}
         month={selectedMonth}
