@@ -222,7 +222,7 @@ export default function RaceListScreen() {
   }, [selectedYear, selectedMonth]);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <Header
         user={user}
         onPersonPress={() => setShowLoginSheet(true)}

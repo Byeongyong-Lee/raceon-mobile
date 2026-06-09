@@ -4,7 +4,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 
 export default function CalendarScreen() {
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <View className="px-4 pb-3 pt-4">
         <Text className="text-2xl font-bold text-gray-900">캘린더</Text>
         <Text className="mt-1 text-sm text-gray-500">
