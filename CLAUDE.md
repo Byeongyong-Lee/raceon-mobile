@@ -39,6 +39,8 @@ raceon-mobile/
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
 │   ├── context/
 │   │   └── UserContext.tsx          # 유저 상태 전역 관리
+│   ├── hooks/
+│   │   └── useLogin.ts              # 소셜 로그인 공통 훅
 │   ├── navigation/
 │   │   ├── RootNavigator.tsx        # Stack 네비게이터 (루트)
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터
