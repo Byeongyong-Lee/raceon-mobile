@@ -6,6 +6,9 @@ import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import Svg, {Path} from 'react-native-svg';
 import {RootStackParamList} from '../navigation/RootNavigator';
 import CourseBadges from '../components/CourseBadges';
+import LoginSheet from '../components/LoginSheet';
+import {useUser} from '../context/UserContext';
+import {useLogin} from '../hooks/useLogin';
 import {formatDate} from '../utils/race';
 
 function KakaoMapIcon() {
@@ -91,7 +94,18 @@ function MapButtons({location}: {location: string}) {
 
 export default function RaceDetailScreen({route, navigation}: Props) {
   const {race} = route.params;
+  const {user} = useUser();
   const [myRaceAdded, setMyRaceAdded] = useState(false);
+  const [showLoginSheet, setShowLoginSheet] = useState(false);
+  const {handleLogin} = useLogin(() => setShowLoginSheet(false));
+
+  const handleAddMyRace = () => {
+    if (!user) {
+      setShowLoginSheet(true);
+      return;
+    }
+    setMyRaceAdded(prev => !prev);
+  };
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
@@ -108,6 +122,11 @@ export default function RaceDetailScreen({route, navigation}: Props) {
         </Text>
       </View>
 
+      <LoginSheet
+        visible={showLoginSheet}
+        onClose={() => setShowLoginSheet(false)}
+        onLogin={handleLogin}
+      />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 32}}>
         {/* 상단 요약 */}
         <View
@@ -161,7 +180,7 @@ export default function RaceDetailScreen({route, navigation}: Props) {
 
         {/* 내 대회 추가 버튼 */}
         <TouchableOpacity
-          onPress={() => setMyRaceAdded(prev => !prev)}
+          onPress={handleAddMyRace}
           activeOpacity={0.85}
           className="mx-4 mt-4 flex-row items-center justify-center rounded-2xl py-4"
           style={{backgroundColor: myRaceAdded ? '#f3f4f6' : '#f97316'}}>

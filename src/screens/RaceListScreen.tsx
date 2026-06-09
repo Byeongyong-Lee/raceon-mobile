@@ -1,12 +1,12 @@
 import React, {useEffect, useState} from 'react';
-import NaverLogin, {NaverLoginResponse} from '@react-native-seoul/naver-login';
-import {login as kakaoLogin, me as getKakaoMe} from '@react-native-kakao/user';
+import NaverLogin from '@react-native-seoul/naver-login';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import Config from 'react-native-config';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useUser} from '../context/UserContext';
 import {RootStackParamList} from '../navigation/RootNavigator';
+import {useLogin} from '../hooks/useLogin';
 import {
   ActivityIndicator,
   FlatList,
@@ -22,7 +22,7 @@ import AdSlider from '../components/AdSlider';
 import LoginSheet from '../components/LoginSheet';
 import RaceCard from '../components/RaceCard';
 import YearMonthPicker from '../components/YearMonthPicker';
-import {Race, SocialProvider} from '../types';
+import {Race} from '../types';
 import {formatDate, getDdayLabel} from '../utils/race';
 
 const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:18300';
@@ -155,49 +155,7 @@ export default function RaceListScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (provider: SocialProvider) => {
-    try {
-      if (provider === 'naver') {
-        const result: NaverLoginResponse = await NaverLogin.login();
-        if (result.isSuccess && result.successResponse) {
-          const token = result.successResponse.accessToken;
-          const profile = await NaverLogin.getProfile(token);
-          if (profile.message === 'success') {
-            setUser({
-              name: profile.response.name ?? '네이버 사용자',
-              imageUrl: profile.response.profile_image ?? null,
-            });
-            setShowLoginSheet(false);
-          }
-        }
-        return;
-      }
-      if (provider === 'kakao') {
-        await kakaoLogin();
-        const profile = await getKakaoMe();
-        setUser({
-          name: profile.nickname ?? '카카오 사용자',
-          imageUrl: profile.profileImageUrl ?? null,
-        });
-        setShowLoginSheet(false);
-        return;
-      }
-      if (provider === 'google') {
-        await GoogleSignin.hasPlayServices();
-        const response = await GoogleSignin.signIn();
-        if (response.type === 'success') {
-          const {name, photo} = response.data.user;
-          setUser({
-            name: name ?? 'Google 사용자',
-            imageUrl: photo ?? null,
-          });
-          setShowLoginSheet(false);
-        }
-      }
-    } catch (e) {
-      console.error(`[Login] ${provider} 로그인 실패:`, e);
-    }
-  };
+  const {handleLogin} = useLogin(() => setShowLoginSheet(false));
 
   useEffect(() => {
     const month = `${selectedYear}${String(selectedMonth).padStart(2, '0')}`;
