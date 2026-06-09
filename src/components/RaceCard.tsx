@@ -1,15 +1,43 @@
 import React from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../navigation/RootNavigator';
 import {Race} from '../types';
 import {getDdayLabel, getDay} from '../utils/race';
 
+function CourseBadges({course, isPast}: {course: string; isPast: boolean}) {
+  const courses = course.split(/[,\/·]/).map(c => c.trim()).filter(Boolean);
+  const visible = courses.slice(0, 4);
+  const hasMore = courses.length > 4;
+  const bgColor = isPast ? '#f3f4f6' : '#ffedd5';
+  const textColor = isPast ? '#9ca3af' : '#ea580c';
+
+  return (
+    <View className="flex-row items-center" style={{gap: 4}}>
+      {visible.map((c, i) => (
+        <View key={i} className="rounded-full px-2 py-0.5" style={{backgroundColor: bgColor}}>
+          <Text className="text-xs font-semibold" style={{color: textColor}}>{c}</Text>
+        </View>
+      ))}
+      {hasMore && (
+        <View className="rounded-full px-2 py-0.5" style={{backgroundColor: bgColor}}>
+          <Text className="text-xs font-semibold" style={{color: textColor}}>···</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function RaceCard({race}: {race: Race}) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const label = getDdayLabel(race.raceDate);
   const isPast = label.startsWith('D+');
 
   return (
     <TouchableOpacity
+      onPress={() => navigation.navigate('RaceDetail', {race})}
       className="mx-4 mb-3 flex-row overflow-hidden rounded-2xl bg-white"
       activeOpacity={0.75}
       style={{
@@ -44,24 +72,16 @@ export default function RaceCard({race}: {race: Race}) {
 
       {/* 오른쪽: 대회 정보 */}
       <View className="flex-1 justify-center px-4 py-3">
-        <View className="flex-row items-center justify-between">
-          <Text
-            className="flex-1 text-base font-bold text-gray-900"
-            numberOfLines={1}>
-            {race.name}
-          </Text>
-          {race.course ? (
-            <View
-              className="ml-2 rounded-full px-2 py-0.5"
-              style={{backgroundColor: isPast ? '#f3f4f6' : '#ffedd5'}}>
-              <Text
-                className="text-xs font-semibold"
-                style={{color: isPast ? '#9ca3af' : '#ea580c'}}>
-                {race.course}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        <Text
+          className="text-base font-bold text-gray-900"
+          numberOfLines={1}>
+          {race.name}
+        </Text>
+        {race.course ? (
+          <View className="mt-1">
+            <CourseBadges course={race.course} isPast={isPast} />
+          </View>
+        ) : null}
         <View className="mt-1.5 flex-row items-center gap-x-1">
           <MaterialIcons name="place" size={13} color="#9ca3af" />
           <Text className="text-xs text-gray-500" numberOfLines={1}>
