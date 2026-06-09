@@ -1,19 +1,12 @@
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import React from 'react';
-import {Text} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import CalendarScreen from '../screens/CalendarScreen';
 import MyRacesScreen from '../screens/MyRacesScreen';
 import RaceListScreen from '../screens/RaceListScreen';
 
 const Tab = createBottomTabNavigator();
-
-function TabIcon({emoji, focused}: {emoji: string; focused: boolean}) {
-  return (
-    <Text style={{fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.5}}>
-      {emoji}
-    </Text>
-  );
-}
 
 export default function AppNavigator() {
   const {bottom: bottomInset} = useSafeAreaInsets();
@@ -24,20 +17,32 @@ export default function AppNavigator() {
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopColor: '#f3f4f6',
+          borderTopWidth: 1,
           height: 60 + bottomInset,
           paddingBottom: 8 + bottomInset,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#f97316',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarLabelStyle: {fontSize: 11, fontWeight: '600'},
       }}>
       <Tab.Screen
-        name="RaceList"
+        name="Home"
         component={RaceListScreen}
         options={{
-          tabBarLabel: '대회 일정',
-          tabBarIcon: ({focused}) => (
-            <TabIcon emoji="🗓️" focused={focused} />
+          tabBarLabel: '홈',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{
+          tabBarLabel: '캘린더',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="calendar-month" size={size} color={color} />
           ),
         }}
       />
@@ -46,8 +51,8 @@ export default function AppNavigator() {
         component={MyRacesScreen}
         options={{
           tabBarLabel: '내 대회',
-          tabBarIcon: ({focused}) => (
-            <TabIcon emoji="🏅" focused={focused} />
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="emoji-events" size={size} color={color} />
           ),
         }}
       />

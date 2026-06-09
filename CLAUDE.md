@@ -37,7 +37,8 @@ raceon-mobile/
 │   │   ├── RootNavigator.tsx        # Stack 네비게이터 (루트)
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터
 │   └── screens/
-│       ├── RaceListScreen.tsx       # 대회 일정 화면
+│       ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
+│       ├── CalendarScreen.tsx       # 캘린더 화면
 │       ├── MyRacesScreen.tsx        # 내 대회 화면
 │       └── SettingsScreen.tsx       # 설정 화면
 ├── android/                         # Android 네이티브 코드
@@ -91,7 +92,8 @@ npm run test
 
 | 화면 | 파일 경로 | 설명 | 추가일 |
 |------|-----------|------|--------|
-| 대회 일정 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 (더미 데이터) | 2026-06-06 |
+| 홈 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 + D-day | 2026-06-06 |
+| 캘린더 | `src/screens/CalendarScreen.tsx` | 대회 일정 달력 (준비 중) | 2026-06-09 |
 | 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 (빈 상태) | 2026-06-06 |
 | 설정 | `src/screens/SettingsScreen.tsx` | 프로필·로그아웃·앱 정보 | 2026-06-08 |
 
@@ -99,8 +101,9 @@ npm run test
 
 RootNavigator (Stack)
 - MainTabs (AppNavigator) → Bottom Tab
-  - 🗓️ 대회 일정 → RaceListScreen
-  - 🏅 내 대회 → MyRacesScreen
+  - 홈 (home) → RaceListScreen
+  - 캘린더 (calendar-month) → CalendarScreen
+  - 내 대회 (emoji-events) → MyRacesScreen
 - Settings → SettingsScreen (프로필 이미지 클릭 시 이동)
 
 ## 스타일링
