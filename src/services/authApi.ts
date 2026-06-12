@@ -22,7 +22,8 @@ export type AuthUser = {
 export type AuthResponse = {
   success: boolean;
   data: {
-    token: string;
+    accessToken: string;
+    refreshToken: string;
     userId: number;
     nickname: string;
     profileImage: string | null;
@@ -67,6 +68,20 @@ export async function loginWithSocial(
     throw new Error(json.message ?? '인증 실패');
   }
   return json;
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({refreshToken}),
+  });
+  const json: {success: boolean; data: {accessToken: string} | null; message: string | null} =
+    await res.json();
+  if (!res.ok || !json.success || !json.data) {
+    throw new Error(json.message ?? '토큰 갱신 실패');
+  }
+  return json.data.accessToken;
 }
 
 export function parseAuthUser(data: AuthResponse['data']): AuthUser {

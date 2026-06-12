@@ -24,6 +24,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **react-native-config**: 환경별 `.env` 파일로 민감 정보 및 설정 관리 (`.env.local`, `.env.dev`, `.env.prod`는 `.gitignore`에 포함)
 - **cross-env**: Windows 호환 환경변수 설정 (npm 스크립트에서 `ENVFILE` 전달 시 사용)
 - **@react-native-async-storage/async-storage**: JWT 토큰 영구 저장
+- **react-native-image-picker**: 갤러리에서 이미지 선택 (기록증 업로드)
 
 ## 프로젝트 구조
 
@@ -45,7 +46,8 @@ raceon-mobile/
 │   ├── services/
 │   │   ├── apiClient.ts             # Bearer 토큰 자동 첨부 fetch 래퍼
 │   │   ├── authApi.ts               # POST /api/auth/{provider} — JWT 발급
-│   │   └── tokenStorage.ts          # AsyncStorage 기반 JWT 저장/조회/삭제
+│   │   ├── tokenStorage.ts          # AsyncStorage 기반 JWT 저장/조회/삭제
+│   │   └── userRaceApi.ts           # GET·POST·DELETE /api/user-races — 내 대회 서버 연동
 │   ├── navigation/
 │   │   ├── RootNavigator.tsx        # Stack 네비게이터 (루트)
 │   │   └── AppNavigator.tsx         # Bottom Tab 네비게이터
@@ -56,7 +58,7 @@ raceon-mobile/
 │   │   ├── MyRacesScreen.tsx        # 내 대회 화면
 │   │   └── SettingsScreen.tsx       # 설정 화면
 │   ├── types/
-│   │   └── index.ts                 # 공유 타입 (Race, SocialProvider)
+│   │   └── index.ts                 # 공유 타입 (Race, UserRace, SocialProvider)
 │   └── utils/
 │       └── race.ts                  # 날짜 유틸 함수 (getDdayLabel 등)
 ├── android/                         # Android 네이티브 코드

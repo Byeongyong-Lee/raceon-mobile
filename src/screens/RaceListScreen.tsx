@@ -3,6 +3,7 @@ import NaverLogin from '@react-native-seoul/naver-login';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import Config from 'react-native-config';
 import {useNavigation} from '@react-navigation/native';
+import {useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useUser} from '../context/UserContext';
 import {RootStackParamList} from '../navigation/RootNavigator';
@@ -10,6 +11,8 @@ import {useLogin} from '../hooks/useLogin';
 import {apiFetch} from '../services/apiClient';
 import {
   ActivityIndicator,
+  Alert,
+  BackHandler,
   FlatList,
   Image,
   ScrollView,
@@ -23,7 +26,7 @@ import AdSlider from '../components/AdSlider';
 import LoginSheet from '../components/LoginSheet';
 import RaceCard from '../components/RaceCard';
 import YearMonthPicker from '../components/YearMonthPicker';
-import {Race} from '../types';
+import {UserRace} from '../types';
 import {formatDate, getDdayLabel} from '../utils/race';
 
 GoogleSignin.configure({
@@ -36,7 +39,6 @@ NaverLogin.initialize({
   consumerSecret: Config.NAVER_CLIENT_SECRET!,
   serviceUrlSchemeIOS: 'com.raceonmobile',
 });
-
 
 function Header({
   user,
@@ -82,7 +84,7 @@ function DdaySection({
 }: {
   isLoggedIn: boolean;
   onLoginPress: () => void;
-  myRaces: Race[];
+  myRaces: UserRace[];
 }) {
   return (
     <View className="mb-3">
@@ -109,7 +111,7 @@ function DdaySection({
             const isPast = label.startsWith('D+');
             return (
               <View
-                key={race.id}
+                key={String(race.userRaceIdx)}
                 className="rounded-2xl bg-white px-4 py-3"
                 style={{
                   minWidth: 130,
@@ -121,7 +123,7 @@ function DdaySection({
                 }}>
                 <Text className="text-xs text-gray-400">{formatDate(race.raceDate)}</Text>
                 <Text className="mt-0.5 text-sm font-semibold text-gray-800" numberOfLines={1}>
-                  {race.name}
+                  {race.raceName}
                 </Text>
                 <Text
                   className="mt-1 text-xl font-black"
@@ -149,6 +151,20 @@ export default function RaceListScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const {handleLogin} = useLogin(() => setShowLoginSheet(false));
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert('앱 종료', '종료하시겠습니까?', [
+          {text: '취소', style: 'cancel'},
+          {text: '종료', style: 'destructive', onPress: () => BackHandler.exitApp()},
+        ]);
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, []),
+  );
 
   useEffect(() => {
     const month = `${selectedYear}${String(selectedMonth).padStart(2, '0')}`;

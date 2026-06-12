@@ -49,7 +49,7 @@ export function useLogin(onSuccess?: () => void) {
       }
 
       const authRes = await loginWithSocial(provider, payload);
-      setAuth(parseAuthUser(authRes.data), authRes.data.token);
+      setAuth(parseAuthUser(authRes.data), authRes.data.accessToken, authRes.data.refreshToken);
       onSuccess?.();
     } catch (e) {
       console.error(`[Login] ${provider} 로그인 실패:`, e);

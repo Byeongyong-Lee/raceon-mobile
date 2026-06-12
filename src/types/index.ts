@@ -11,4 +11,20 @@ export type Race = {
   detailUrl: string;
 };
 
+export type UserRace = {
+  userRaceIdx: number;
+  raceIdx: number;
+  raceName: string;
+  raceDate: string;
+  raceLocation: string;
+  course: string;
+  bibNumber: string | null;
+  recordTime: string | null;
+  pace: string | null;
+  ranking: number | null;
+  finishYn: string | null;
+  memo: string | null;
+  recordImagePath: string | null;
+};
+
 export type SocialProvider = 'google' | 'naver' | 'kakao';

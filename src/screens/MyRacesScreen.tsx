@@ -6,7 +6,23 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {useUser} from '../context/UserContext';
 import {RootStackParamList} from '../navigation/RootNavigator';
+import {Race, UserRace} from '../types';
 import {formatDate, getDdayLabel} from '../utils/race';
+
+function userRaceToRace(ur: UserRace): Race {
+  return {
+    id: String(ur.raceIdx),
+    sourceId: '',
+    name: ur.raceName,
+    raceDate: ur.raceDate,
+    location: ur.raceLocation,
+    course: ur.course,
+    organizer: '',
+    phone: '',
+    homepage: '',
+    detailUrl: '',
+  };
+}
 
 export default function MyRacesScreen() {
   const {myRaces, removeMyRace} = useUser();
@@ -32,7 +48,7 @@ export default function MyRacesScreen() {
       ) : (
         <FlatList
           data={myRaces}
-          keyExtractor={item => item.id}
+          keyExtractor={item => String(item.userRaceIdx)}
           contentContainerStyle={{paddingTop: 8, paddingBottom: 24}}
           showsVerticalScrollIndicator={false}
           renderItem={({item}) => {
@@ -40,7 +56,7 @@ export default function MyRacesScreen() {
             const isPast = label.startsWith('D+');
             return (
               <TouchableOpacity
-                onPress={() => navigation.navigate('RaceDetail', {race: item})}
+                onPress={() => navigation.navigate('RaceDetail', {race: userRaceToRace(item), fromMyRaces: true})}
                 activeOpacity={0.75}
                 className="mx-4 mb-3 flex-row items-center overflow-hidden rounded-2xl bg-white px-4 py-4"
                 style={{
@@ -52,10 +68,10 @@ export default function MyRacesScreen() {
                 }}>
                 <View className="flex-1">
                   <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
-                    {item.name}
+                    {item.raceName}
                   </Text>
                   <Text className="mt-0.5 text-xs text-gray-400">
-                    {formatDate(item.raceDate)}
+                    {formatDate(item.raceDate)} · {item.course}
                   </Text>
                 </View>
                 <View
@@ -68,7 +84,7 @@ export default function MyRacesScreen() {
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => removeMyRace(item.id)}
+                  onPress={() => removeMyRace(item.userRaceIdx)}
                   hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
                   className="ml-3">
                   <MaterialIcons name="close" size={18} color="#d1d5db" />

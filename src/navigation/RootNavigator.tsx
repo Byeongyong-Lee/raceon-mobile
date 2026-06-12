@@ -9,7 +9,7 @@ import AppNavigator from './AppNavigator';
 export type RootStackParamList = {
   MainTabs: undefined;
   Settings: undefined;
-  RaceDetail: {race: Race};
+  RaceDetail: {race: Race; fromMyRaces?: boolean};
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
