@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useMemo, useState} from 'react';
 import {FlatList, Text, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -28,12 +28,54 @@ export default function MyRacesScreen() {
   const {myRaces, removeMyRace} = useUser();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  const years = useMemo(() => {
+    const set = new Set(myRaces.map(r => r.raceDate.slice(0, 4)));
+    return Array.from(set).sort((a, b) => Number(b) - Number(a));
+  }, [myRaces]);
+
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () =>
+      selectedYear
+        ? myRaces.filter(r => r.raceDate.startsWith(selectedYear))
+        : myRaces,
+    [myRaces, selectedYear],
+  );
+
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
-      <View className="px-4 pb-3 pt-4">
+      <View className="px-4 pb-2 pt-4">
         <Text className="text-2xl font-bold text-gray-900">내 대회</Text>
         <Text className="mt-1 text-sm text-gray-500">신청한 대회를 관리해요</Text>
       </View>
+
+      {/* 연도 필터 */}
+      {years.length > 0 && (
+        <View className="flex-row items-center justify-center py-2" style={{gap: 16}}>
+          <TouchableOpacity
+            onPress={() => {
+              const idx = selectedYear ? years.indexOf(selectedYear) : -1;
+              setSelectedYear(idx < years.length - 1 ? years[idx + 1] : null);
+            }}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+            activeOpacity={0.6}>
+            <MaterialIcons name="chevron-left" size={24} color="#9ca3af" />
+          </TouchableOpacity>
+          <Text className="text-base font-bold text-gray-800">
+            {selectedYear ? `${selectedYear}년` : '전체'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              const idx = selectedYear ? years.indexOf(selectedYear) : years.length;
+              setSelectedYear(idx > 0 ? years[idx - 1] : null);
+            }}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+            activeOpacity={0.6}>
+            <MaterialIcons name="chevron-right" size={24} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {myRaces.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -45,18 +87,30 @@ export default function MyRacesScreen() {
             대회 상세에서 추가해보세요
           </Text>
         </View>
+      ) : filtered.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <MaterialIcons name="search-off" size={48} color="#d1d5db" />
+          <Text className="mt-4 text-base font-semibold text-gray-400">
+            {selectedYear}년 대회가 없어요
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={myRaces}
+          data={filtered}
           keyExtractor={item => String(item.userRaceIdx)}
-          contentContainerStyle={{paddingTop: 8, paddingBottom: 24}}
+          contentContainerStyle={{paddingTop: 4, paddingBottom: 24}}
           showsVerticalScrollIndicator={false}
           renderItem={({item}) => {
             const label = getDdayLabel(item.raceDate);
             const isPast = label.startsWith('D+');
             return (
               <TouchableOpacity
-                onPress={() => navigation.navigate('RaceDetail', {race: userRaceToRace(item), fromMyRaces: true})}
+                onPress={() =>
+                  navigation.navigate('RaceDetail', {
+                    race: userRaceToRace(item),
+                    fromMyRaces: true,
+                  })
+                }
                 activeOpacity={0.75}
                 className="mx-4 mb-3 flex-row items-center overflow-hidden rounded-2xl bg-white px-4 py-4"
                 style={{
