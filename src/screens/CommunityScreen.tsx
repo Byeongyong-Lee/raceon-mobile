@@ -174,8 +174,8 @@ export default function CommunityScreen() {
               }}>
               {/* 모임 아이콘 */}
               <View
-                className="mr-3 h-12 w-12 items-center justify-center rounded-xl"
-                style={{backgroundColor: item.color + '20'}}>
+                className="h-12 w-12 items-center justify-center rounded-full"
+                style={{backgroundColor: item.color + '20', marginRight: 16}}>
                 <MaterialIcons name="groups" size={26} color={item.color} />
               </View>
 
