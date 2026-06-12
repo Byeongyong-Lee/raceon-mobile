@@ -40,7 +40,7 @@ export default function AppNavigator() {
         name="Community"
         component={CommunityScreen}
         options={{
-          tabBarLabel: '커뮤니티',
+          tabBarLabel: '내 모임',
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="forum" size={size} color={color} />
           ),

@@ -54,7 +54,8 @@ raceon-mobile/
 │   ├── screens/
 │   │   ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
 │   │   ├── RaceDetailScreen.tsx     # 대회 상세 (정보·지도·내 대회 추가)
-│   │   ├── CommunityScreen.tsx      # 커뮤니티 화면 (준비 중)
+│   │   ├── CommunityScreen.tsx      # 내 모임 화면 (모임 목록·만들기·코드 참가)
+│   │   ├── GroupDetailScreen.tsx    # 모임 상세 (게시판·채팅·실시간 위치 탭)
 │   │   ├── MyRacesScreen.tsx        # 내 대회 화면
 │   │   └── SettingsScreen.tsx       # 설정 화면
 │   ├── types/
@@ -113,8 +114,9 @@ npm run test
 | 화면 | 파일 경로 | 설명 | 추가일 |
 |------|-----------|------|--------|
 | 홈 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 + D-day | 2026-06-06 |
-| 캘린더 | `src/screens/CalendarScreen.tsx` | 대회 일정 달력 (준비 중) | 2026-06-09 |
-| 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 (빈 상태) | 2026-06-06 |
+| 내 모임 | `src/screens/CommunityScreen.tsx` | 모임 목록·만들기·코드 참가 | 2026-06-12 |
+| 모임 상세 | `src/screens/GroupDetailScreen.tsx` | 게시판·채팅·실시간 위치 탭 | 2026-06-12 |
+| 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 | 2026-06-06 |
 | 대회 상세 | `src/screens/RaceDetailScreen.tsx` | 대회 상세 정보·지도 연결·내 대회 추가 | 2026-06-09 |
 | 설정 | `src/screens/SettingsScreen.tsx` | 프로필·로그아웃·앱 정보 | 2026-06-08 |
 
@@ -123,7 +125,7 @@ npm run test
 RootNavigator (Stack)
 - MainTabs (AppNavigator) → Bottom Tab
   - 홈 (home) → RaceListScreen
-  - 캘린더 (calendar-month) → CalendarScreen
+  - 내 모임 (forum) → CommunityScreen → GroupDetailScreen (인라인 전환)
   - 내 대회 (emoji-events) → MyRacesScreen
 - Settings → SettingsScreen (프로필 이미지 클릭 시 이동)
 - RaceDetail → RaceDetailScreen (대회 카드 탭 시 이동, race 객체 전달)
