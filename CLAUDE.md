@@ -54,7 +54,7 @@ raceon-mobile/
 │   ├── screens/
 │   │   ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
 │   │   ├── RaceDetailScreen.tsx     # 대회 상세 (정보·지도·내 대회 추가)
-│   │   ├── CalendarScreen.tsx       # 캘린더 화면
+│   │   ├── CommunityScreen.tsx      # 커뮤니티 화면 (준비 중)
 │   │   ├── MyRacesScreen.tsx        # 내 대회 화면
 │   │   └── SettingsScreen.tsx       # 설정 화면
 │   ├── types/

@@ -2,7 +2,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import React from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import CalendarScreen from '../screens/CalendarScreen';
+import CommunityScreen from '../screens/CommunityScreen';
 import MyRacesScreen from '../screens/MyRacesScreen';
 import RaceListScreen from '../screens/RaceListScreen';
 
@@ -37,12 +37,12 @@ export default function AppNavigator() {
         }}
       />
       <Tab.Screen
-        name="Calendar"
-        component={CalendarScreen}
+        name="Community"
+        component={CommunityScreen}
         options={{
-          tabBarLabel: '캘린더',
+          tabBarLabel: '커뮤니티',
           tabBarIcon: ({color, size}) => (
-            <MaterialIcons name="calendar-month" size={size} color={color} />
+            <MaterialIcons name="forum" size={size} color={color} />
           ),
         }}
       />
