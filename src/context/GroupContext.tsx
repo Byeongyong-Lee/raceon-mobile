@@ -1,8 +1,11 @@
 import React, {createContext, useContext, useEffect, useRef, useState} from 'react';
+import Config from 'react-native-config';
 import {GroupResponse} from '../types';
 import {fetchGroups, fetchMyGroups, createGroupApi, applyGroupApi} from '../services/groupApi';
 import {areaCodeToLabel, labelToAreaCode} from '../constants/regions';
 import {useUser} from './UserContext';
+
+const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
 export type GroupStatus = 'none' | 'pending' | 'joined';
 
@@ -80,7 +83,7 @@ function mapGroupResponse(r: GroupResponse, status: GroupStatus = 'none'): Group
     isLeader: r.role === 'OWNER',
     lastActivity: '',
     region: areaCodeToLabel(r.areaCode),
-    imageUri: r.profileImage ?? undefined,
+    imageUri: r.profileImage ? `${BASE_URL}${r.profileImage}` : undefined,
   };
 }
 
@@ -299,6 +302,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     tags,
     maxMembers,
     maxOperators,
+    imageUri,
   }: CreateGroupParams) => {
     const areaCode = labelToAreaCode(region) ?? region;
 
@@ -313,6 +317,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
       tag3: tags[2],
       tag4: tags[3],
       tag5: tags[4],
+      imageUri,
     });
 
     const newGroup = mapGroupResponse(response, 'joined');

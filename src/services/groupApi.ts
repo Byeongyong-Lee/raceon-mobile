@@ -1,5 +1,9 @@
+import Config from 'react-native-config';
 import {apiFetch} from './apiClient';
+import {tokenStorage} from './tokenStorage';
 import {GroupResponse} from '../types';
+
+const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
 type ApiResult<T> = {success: boolean; data: T; message: string | null};
 
@@ -36,15 +40,45 @@ export type CreateGroupApiParams = {
   tag3?: string;
   tag4?: string;
   tag5?: string;
-  profileImage?: string; // 서버 URL (추후 업로드 API 연동 시 사용)
+  imageUri?: string; // 로컬 파일 URI (multipart/form-data로 전송)
 };
 
+function getMimeType(uri: string): string {
+  const ext = uri.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp'};
+  return map[ext] ?? 'image/jpeg';
+}
+
 export async function createGroupApi(params: CreateGroupApiParams): Promise<GroupResponse> {
+  const {imageUri, ...rest} = params;
+
+  // 1단계: JSON으로 모임 생성
   const json = await apiFetch<ApiResult<GroupResponse>>('/api/groups', {
     method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify(rest),
   });
   if (!json.success) throw new Error(json.message ?? '서버 오류');
+
+  // 2단계: 이미지가 있으면 별도 업로드 (파일 파트만 있는 multipart)
+  if (imageUri) {
+    const token = await tokenStorage.get();
+    const formData = new FormData();
+    formData.append('file', {
+      uri: imageUri,
+      type: getMimeType(imageUri),
+      name: `profile.${imageUri.split('.').pop() ?? 'jpg'}`,
+    } as any);
+
+    await new Promise<void>(resolve => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE_URL}/api/groups/${json.data.groupIdx}/image`);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.onreadystatechange = () => { if (xhr.readyState === 4) resolve(); };
+      xhr.onerror = () => resolve(); // 이미지 실패해도 모임 생성은 성공
+      xhr.send(formData);
+    });
+  }
+
   return json.data;
 }
 

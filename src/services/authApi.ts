@@ -1,7 +1,7 @@
 import Config from 'react-native-config';
 import {SocialProvider} from '../types';
 
-const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:18300';
+const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
 export type SocialLoginPayload = {
   socialId: string;

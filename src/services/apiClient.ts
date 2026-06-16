@@ -2,7 +2,7 @@ import Config from 'react-native-config';
 import {tokenStorage, refreshTokenStorage} from './tokenStorage';
 import {refreshAccessToken} from './authApi';
 
-const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:18300';
+const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
 type RequestOptions = Omit<RequestInit, 'headers'> & {
   headers?: Record<string, string>;
@@ -30,13 +30,8 @@ function buildHeaders(
   token: string | null,
   extra?: Record<string, string>,
 ): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...extra,
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  const headers: Record<string, string> = {'Content-Type': 'application/json', ...extra};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
 

@@ -3,7 +3,7 @@ import {apiFetch} from './apiClient';
 import {tokenStorage} from './tokenStorage';
 import {UserRace} from '../types';
 
-const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:18300';
+const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
 export function getRecordImageUrl(path: string): string {
   return `${BASE_URL}${path}`;
@@ -55,19 +55,26 @@ export async function uploadRecordImage(
   const token = await tokenStorage.get();
   const formData = new FormData();
   formData.append('file', {uri: fileUri, name: fileName, type: fileType} as any);
-  const res = await fetch(`${BASE_URL}/api/user-races/${userRaceIdx}/record-image`, {
-    method: 'POST',
-    headers: token ? {Authorization: `Bearer ${token}`} : {},
-    body: formData,
+
+  return new Promise<UserRace>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE_URL}/api/user-races/${userRaceIdx}/record-image`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState !== 4) return;
+      try {
+        const json: {success: boolean; data: UserRace; message: string | null} =
+          JSON.parse(xhr.responseText);
+        if (!json.success) reject(new Error(json.message ?? '업로드 실패'));
+        else resolve(json.data);
+      } catch {
+        reject(new Error(`HTTP ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(formData);
   });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const json: {success: boolean; data: UserRace; message: string | null} = await res.json();
-  if (!json.success) {
-    throw new Error(json.message ?? '업로드 실패');
-  }
-  return json.data;
 }
 
 export async function updateUserRaceRecord(

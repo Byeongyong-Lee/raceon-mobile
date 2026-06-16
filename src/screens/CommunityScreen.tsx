@@ -42,18 +42,44 @@ export default function CommunityScreen() {
   const [newMaxOperators, setNewMaxOperators] = useState('');
   const [newImageUri, setNewImageUri] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [tagDuplicateError, setTagDuplicateError] = useState(false);
 
-  const maxOperatorLimit = newMaxMembers
-    ? Math.floor(Number(newMaxMembers) * 0.2)
-    : 0;
-  const operatorOver =
-    newMaxOperators !== '' && Number(newMaxOperators) > maxOperatorLimit;
+  const membersNum = Number(newMaxMembers);
+  const maxOperatorLimit = newMaxMembers ? Math.floor(membersNum * 0.2) : 0;
+  const membersValid = !!newMaxMembers && membersNum >= 2 && membersNum <= 1000;
+  const operatorOver = newMaxOperators !== '' && Number(newMaxOperators) > maxOperatorLimit;
+
+  // 필드별 에러 (submitted 이후에만 표시)
+  const nameError = submitted && newName.trim().length < 2
+    ? (newName.trim().length === 0 ? '모임 이름을 입력해 주세요' : '2자 이상 입력해 주세요')
+    : null;
+  const regionError = submitted && !newRegion ? '지역을 선택해 주세요' : null;
+  const membersError = submitted && !membersValid
+    ? (!newMaxMembers ? '최대 인원을 입력해 주세요' : '2~1000명 사이로 입력해 주세요')
+    : (!submitted && newMaxMembers && !membersValid ? '2~1000명 사이로 입력해 주세요' : null);
+  const operatorsError = operatorOver
+    ? `최대 ${maxOperatorLimit}명 (인원의 20%)까지 가능해요`
+    : (submitted && membersValid && newMaxOperators === '' ? '운영진 수를 입력해 주세요' : null);
+
+  const canCreate =
+    newName.trim().length >= 2 &&
+    newRegion &&
+    membersValid &&
+    newMaxOperators !== '' &&
+    !operatorOver;
 
   const addTag = () => {
     const t = tagInput.trim();
-    if (!t || newTags.includes(t) || newTags.length >= 5) return;
+    if (!t) return;
+    if (newTags.includes(t)) {
+      setTagDuplicateError(true);
+      return;
+    }
+    if (newTags.length >= 5) return;
     setNewTags(prev => [...prev, t]);
     setTagInput('');
+    setTagDuplicateError(false);
   };
 
   const resetCreateForm = () => {
@@ -65,6 +91,8 @@ export default function CommunityScreen() {
     setNewMaxMembers('');
     setNewMaxOperators('');
     setNewImageUri(null);
+    setSubmitted(false);
+    setTagDuplicateError(false);
   };
 
   const handlePickImage = async () => {
@@ -73,16 +101,8 @@ export default function CommunityScreen() {
     setNewImageUri(result.assets[0].uri);
   };
 
-  const canCreate =
-    newName.trim() &&
-    newRegion &&
-    newMaxMembers &&
-    Number(newMaxMembers) >= 2 &&
-    Number(newMaxMembers) <= 1000 &&
-    newMaxOperators !== '' &&
-    !operatorOver;
-
   const handleCreate = async () => {
+    setSubmitted(true);
     if (!canCreate || creating) return;
     setCreating(true);
     try {
@@ -359,15 +379,18 @@ export default function CommunityScreen() {
               <Text className="mb-1 text-sm font-semibold text-gray-700">
                 모임 이름 <Text className="text-orange-500">*</Text>
               </Text>
-              <TextInput
-                value={newName}
-                onChangeText={setNewName}
-                placeholder="예) 한강 러닝 크루"
-                placeholderTextColor="#9ca3af"
-                className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-                style={{borderWidth: 1, borderColor: '#e5e7eb'}}
-                maxLength={30}
-              />
+              <View className="mb-4">
+                <TextInput
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="예) 한강 러닝 크루"
+                  placeholderTextColor="#9ca3af"
+                  className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                  style={{borderWidth: 1, borderColor: nameError ? '#ef4444' : '#e5e7eb'}}
+                  maxLength={30}
+                />
+                {nameError && <Text className="mt-1 text-xs text-red-400">{nameError}</Text>}
+              </View>
 
               {/* 소개 */}
               <Text className="mb-1 text-sm font-semibold text-gray-700">소개 (선택)</Text>
@@ -387,7 +410,7 @@ export default function CommunityScreen() {
               <Text className="mb-2 text-sm font-semibold text-gray-700">
                 지역 <Text className="text-orange-500">*</Text>
               </Text>
-              <View className="mb-4 flex-row flex-wrap" style={{gap: 8}}>
+              <View className="flex-row flex-wrap" style={{gap: 8}}>
                 {sidoList.map(area => {
                   const r = toShortLabel(area.areaName);
                   const active = newRegion === r;
@@ -415,6 +438,8 @@ export default function CommunityScreen() {
                   );
                 })}
               </View>
+              {regionError && <Text className="mt-1 text-xs text-red-400">{regionError}</Text>}
+              <View className="mb-4" />
 
               {/* 태그 */}
               <Text className="mb-1 text-sm font-semibold text-gray-700">
@@ -438,8 +463,9 @@ export default function CommunityScreen() {
                   <MaterialIcons name="add" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
+              {tagDuplicateError && <Text className="mt-1 text-xs text-red-400">이미 추가된 태그예요</Text>}
               {newTags.length > 0 && (
-                <View className="mb-4 flex-row flex-wrap" style={{gap: 6}}>
+                <View className="mt-2 mb-4 flex-row flex-wrap" style={{gap: 6}}>
                   {newTags.map(tag => (
                     <TouchableOpacity
                       key={tag}
@@ -452,6 +478,7 @@ export default function CommunityScreen() {
                   ))}
                 </View>
               )}
+              {!newTags.length && <View className="mb-4" />}
 
               {/* 최대 인원 + 운영진 */}
               <View className="flex-row" style={{gap: 12}}>
@@ -463,20 +490,27 @@ export default function CommunityScreen() {
                     <TextInput
                       value={newMaxMembers}
                       onChangeText={v => {
-                        setNewMaxMembers(v.replace(/[^0-9]/g, ''));
-                        setNewMaxOperators('');
+                        const cleaned = v.replace(/[^0-9]/g, '');
+                        setNewMaxMembers(cleaned);
+                        const num = Number(cleaned);
+                        const limit = Math.floor(num * 0.2);
+                        if (cleaned && num >= 2 && num <= 1000 && limit === 0) {
+                          setNewMaxOperators('0');
+                        } else {
+                          setNewMaxOperators('');
+                        }
                       }}
                       placeholder="최대 1000"
                       placeholderTextColor="#9ca3af"
                       keyboardType="numeric"
                       maxLength={4}
                       className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-                      style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                      style={{borderWidth: 1, borderColor: membersError ? '#ef4444' : '#e5e7eb'}}
                     />
                     <Text className="text-sm text-gray-500">명</Text>
                   </View>
-                  {newMaxMembers && (Number(newMaxMembers) < 2 || Number(newMaxMembers) > 1000) && (
-                    <Text className="mt-1 text-xs text-red-400">2~1000명 사이로 입력해 주세요</Text>
+                  {membersError && (
+                    <Text className="mt-1 text-xs text-red-400">{membersError}</Text>
                   )}
                 </View>
 
@@ -492,19 +526,19 @@ export default function CommunityScreen() {
                       placeholderTextColor="#9ca3af"
                       keyboardType="numeric"
                       maxLength={3}
-                      editable={!!newMaxMembers && Number(newMaxMembers) >= 2 && Number(newMaxMembers) <= 1000}
+                      editable={membersValid && maxOperatorLimit > 0}
                       className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
                       style={{
                         borderWidth: 1,
-                        borderColor: operatorOver ? '#ef4444' : '#e5e7eb',
-                        opacity: (!newMaxMembers || Number(newMaxMembers) < 2) ? 0.5 : 1,
+                        borderColor: operatorsError ? '#ef4444' : '#e5e7eb',
+                        opacity: !membersValid ? 0.5 : 1,
                       }}
                     />
                     <Text className="text-sm text-gray-500">명</Text>
                   </View>
-                  {newMaxMembers && Number(newMaxMembers) >= 2 && (
-                    <Text className={`mt-1 text-xs ${operatorOver ? 'text-red-400' : 'text-gray-400'}`}>
-                      최대 {maxOperatorLimit}명 (인원의 20%)
+                  {membersValid && (
+                    <Text className={`mt-1 text-xs ${operatorOver ? 'text-red-400' : operatorsError ? 'text-red-400' : 'text-gray-400'}`}>
+                      {operatorsError ?? `최대 ${maxOperatorLimit}명 (인원의 20%)`}
                     </Text>
                   )}
                 </View>
