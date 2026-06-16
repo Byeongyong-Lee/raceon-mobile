@@ -129,8 +129,7 @@ export default function CommunityScreen() {
   if (selectedGroup) {
     return (
       <GroupDetailScreen
-        groupName={selectedGroup.name}
-        isLeader={selectedGroup.isLeader}
+        group={selectedGroup}
         onBack={() => setSelectedGroupId(null)}
       />
     );

@@ -1,7 +1,7 @@
 import React, {createContext, useContext, useEffect, useRef, useState} from 'react';
 import Config from 'react-native-config';
 import {GroupResponse, GroupRole} from '../types';
-import {fetchGroups, fetchMyGroups, createGroupApi, applyGroupApi} from '../services/groupApi';
+import {fetchGroups, fetchMyGroups, createGroupApi, updateGroupApi, applyGroupApi} from '../services/groupApi';
 import {areaCodeToLabel, labelToAreaCode} from '../constants/regions';
 import {useUser} from './UserContext';
 
@@ -35,8 +35,10 @@ type CreateGroupParams = {
   tags: string[];
   maxMembers: number;
   maxOperators: number;
-  imageUri?: string; // 로컬 URI (추후 업로드 연동)
+  imageUri?: string;
 };
+
+type UpdateGroupParams = CreateGroupParams & {groupIdx: number};
 
 type SearchGroupsParams = {keyword?: string; areaCode?: string};
 
@@ -47,6 +49,7 @@ type GroupContextType = {
   myGroupsLoading: boolean;
   applyGroup: (id: string) => Promise<void>;
   createGroup: (params: CreateGroupParams) => Promise<void>;
+  updateGroup: (params: UpdateGroupParams) => Promise<void>;
   refreshMyGroups: () => Promise<void>;
   searchGroups: (params?: SearchGroupsParams) => Promise<void>;
 };
@@ -58,6 +61,7 @@ const GroupContext = createContext<GroupContextType>({
   myGroupsLoading: false,
   applyGroup: async () => {},
   createGroup: async _p => {},
+  updateGroup: async _p => {},
   refreshMyGroups: async () => {},
   searchGroups: async () => {},
 });
@@ -215,13 +219,13 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     setGroupsLoading(true);
     try {
       const data = await fetchGroups(params);
-      setGroups(prev => {
+      setGroups(() => {
         const pending = pendingIdsRef.current;
         return data.map(r => {
           const base = mapGroupResponse(r, 'none');
           if (pending.includes(base.id)) return {...base, status: 'pending' as GroupStatus};
-          const mine = prev.find(g => g.id === base.id);
-          if (mine?.status === 'joined') return {...base, status: 'joined' as GroupStatus, isLeader: mine.isLeader};
+          // 서버가 role을 반환하면 이미 가입된 모임
+          if (r.role !== null) return {...base, status: 'joined' as GroupStatus};
           return base;
         });
       });
@@ -333,6 +337,47 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     setGroups(prev => [newGroup, ...prev]);
   };
 
+  // ── 모임 수정 ───────────────────────────────────────────
+  const updateGroup = async ({
+    groupIdx,
+    name,
+    description,
+    region,
+    tags,
+    maxMembers,
+    maxOperators,
+    imageUri,
+  }: UpdateGroupParams) => {
+    const areaCode = labelToAreaCode(region) ?? region;
+
+    await updateGroupApi(groupIdx, {
+      name,
+      description: description || undefined,
+      groupMembers: maxMembers,
+      managerMembers: maxOperators,
+      areaCode,
+      tag1: tags[0],
+      tag2: tags[1],
+      tag3: tags[2],
+      tag4: tags[3],
+      tag5: tags[4],
+      imageUri,
+    });
+
+    // 로컬 상태 업데이트 (이미지 변경 시 리로드)
+    if (imageUri) {
+      await loadMyGroups();
+    } else {
+      const patch = (g: Group): Group =>
+        g.groupIdx === groupIdx
+          ? {...g, name, description, region: areaCodeToLabel(areaCode), tags,
+              maxMembers, maxOperators}
+          : g;
+      setMyGroups(prev => prev.map(patch));
+      setGroups(prev => prev.map(patch));
+    }
+  };
+
   return (
     <GroupContext.Provider
       value={{
@@ -342,6 +387,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
         myGroupsLoading,
         applyGroup,
         createGroup,
+        updateGroup,
         refreshMyGroups: loadMyGroups,
         searchGroups: loadGroups,
       }}>

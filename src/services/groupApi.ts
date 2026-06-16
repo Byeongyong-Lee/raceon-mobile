@@ -82,6 +82,50 @@ export async function createGroupApi(params: CreateGroupApiParams): Promise<Grou
   return json.data;
 }
 
+// ── 모임 수정 ─────────────────────────────────────────────
+export type UpdateGroupApiParams = {
+  name: string;
+  description?: string;
+  groupMembers?: number;
+  managerMembers?: number;
+  areaCode: string;
+  tag1?: string;
+  tag2?: string;
+  tag3?: string;
+  tag4?: string;
+  tag5?: string;
+  imageUri?: string;
+};
+
+export async function updateGroupApi(groupIdx: number, params: UpdateGroupApiParams): Promise<void> {
+  const {imageUri, ...rest} = params;
+
+  const json = await apiFetch<ApiResult<null>>(`/api/groups/${groupIdx}`, {
+    method: 'PATCH',
+    body: JSON.stringify(rest),
+  });
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+
+  if (imageUri) {
+    const token = await tokenStorage.get();
+    const formData = new FormData();
+    formData.append('file', {
+      uri: imageUri,
+      type: getMimeType(imageUri),
+      name: `profile.${imageUri.split('.').pop() ?? 'jpg'}`,
+    } as any);
+
+    await new Promise<void>(resolve => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE_URL}/api/groups/${groupIdx}/image`);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.onreadystatechange = () => { if (xhr.readyState === 4) resolve(); };
+      xhr.onerror = () => resolve();
+      xhr.send(formData);
+    });
+  }
+}
+
 // ── 가입 신청 ─────────────────────────────────────────────
 export async function applyGroupApi(groupIdx: number, message?: string): Promise<void> {
   const json = await apiFetch<ApiResult<null>>(

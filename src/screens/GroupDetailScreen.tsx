@@ -1,6 +1,9 @@
 import React, {useState} from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +15,11 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import {launchImageLibrary} from 'react-native-image-picker';
+import {Group} from '../context/GroupContext';
+import {useGroups} from '../context/GroupContext';
+import {useAreas} from '../context/AreaContext';
+import {toShortLabel, labelToAreaCode} from '../constants/regions';
 
 type TabType = '게시판' | '채팅' | '모임';
 
@@ -840,14 +848,145 @@ function MeetingTab({isLeader}: {isLeader: boolean}) {
 // ─────────────────────────────────────────
 
 type Props = {
-  groupName: string;
-  isLeader?: boolean;
+  group: Group;
   onBack: () => void;
 };
 
-export default function GroupDetailScreen({groupName, isLeader = false, onBack}: Props) {
+export default function GroupDetailScreen({group, onBack}: Props) {
+  const {updateGroup} = useGroups();
+  const {sidoList} = useAreas();
+
+  const {role, isLeader} = group;
+
   const [activeTab, setActiveTab] = useState<TabType>('게시판');
+  const [showMenu, setShowMenu] = useState(false);
   const TABS: TabType[] = ['게시판', '채팅', '모임'];
+
+  // ── 모임 정보 수정 ─────────────────────────────────────
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editRegion, setEditRegion] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState('');
+  const [editMaxMembers, setEditMaxMembers] = useState('');
+  const [editMaxOperators, setEditMaxOperators] = useState('');
+  const [editImageUri, setEditImageUri] = useState<string | null>(null);
+  const [editSubmitted, setEditSubmitted] = useState(false);
+  const [editTagDuplicateError, setEditTagDuplicateError] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const editMembersNum = Number(editMaxMembers);
+  const editMaxOpLimit = editMaxMembers ? Math.floor(editMembersNum * 0.2) : 0;
+  const editMembersValid = !!editMaxMembers && editMembersNum >= 2 && editMembersNum <= 1000;
+  const editOpOver = editMaxOperators !== '' && Number(editMaxOperators) > editMaxOpLimit;
+
+  const editNameError = editSubmitted && editName.trim().length < 2
+    ? (editName.trim().length === 0 ? '모임 이름을 입력해 주세요' : '2자 이상 입력해 주세요')
+    : null;
+  const editRegionError = editSubmitted && !editRegion ? '지역을 선택해 주세요' : null;
+  const editMembersError = editSubmitted && !editMembersValid
+    ? (!editMaxMembers ? '최대 인원을 입력해 주세요' : '2~1000명 사이로 입력해 주세요')
+    : (!editSubmitted && editMaxMembers && !editMembersValid ? '2~1000명 사이로 입력해 주세요' : null);
+  const editOpError = editOpOver
+    ? `최대 ${editMaxOpLimit}명 (인원의 20%)까지 가능해요`
+    : (editSubmitted && editMembersValid && editMaxOperators === '' ? '운영진 수를 입력해 주세요' : null);
+
+  const editCanSave =
+    editName.trim().length >= 2 && editRegion && editMembersValid &&
+    editMaxOperators !== '' && !editOpOver;
+
+  const openEditModal = () => {
+    setEditName(group.name);
+    setEditDesc(group.description);
+    setEditRegion(group.region);
+    setEditTags([...group.tags]);
+    setEditTagInput('');
+    setEditMaxMembers(group.maxMembers >= 999999 ? '' : String(group.maxMembers));
+    setEditMaxOperators(String(group.maxOperators));
+    setEditImageUri(null);
+    setEditSubmitted(false);
+    setEditTagDuplicateError(false);
+    setShowMenu(false);
+    setShowEditModal(true);
+  };
+
+  const resetEditForm = () => {
+    setEditSubmitted(false);
+    setEditTagDuplicateError(false);
+    setEditImageUri(null);
+  };
+
+  const addEditTag = () => {
+    const t = editTagInput.trim();
+    if (!t) return;
+    if (editTags.includes(t)) { setEditTagDuplicateError(true); return; }
+    if (editTags.length >= 5) return;
+    setEditTags(prev => [...prev, t]);
+    setEditTagInput('');
+    setEditTagDuplicateError(false);
+  };
+
+  const handlePickEditImage = async () => {
+    const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8});
+    if (result.didCancel || !result.assets?.[0]?.uri) return;
+    setEditImageUri(result.assets[0].uri);
+  };
+
+  const handleSaveEdit = async () => {
+    setEditSubmitted(true);
+    if (!editCanSave || saving || !group.groupIdx) return;
+    setSaving(true);
+    try {
+      await updateGroup({
+        groupIdx: group.groupIdx,
+        name: editName.trim(),
+        description: editDesc.trim(),
+        region: editRegion,
+        tags: editTags,
+        maxMembers: Number(editMaxMembers),
+        maxOperators: Number(editMaxOperators),
+        imageUri: editImageUri ?? undefined,
+      });
+      resetEditForm();
+      setShowEditModal(false);
+    } catch {
+      Alert.alert('오류', '수정에 실패했어요. 다시 시도해 주세요.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── 탈퇴 / 삭제 ────────────────────────────────────────
+  const handleLeave = () => {
+    setShowMenu(false);
+    Alert.alert(
+      '모임 탈퇴',
+      `'${group.name}' 모임에서 탈퇴하시겠어요?`,
+      [
+        {text: '취소', style: 'cancel'},
+        {text: '탈퇴', style: 'destructive', onPress: () => onBack()},
+      ],
+    );
+  };
+
+  const handleDelete = () => {
+    setShowMenu(false);
+    Alert.alert(
+      '모임 삭제',
+      `'${group.name}' 모임을 삭제하시겠어요?\n삭제 후에는 복구할 수 없어요.`,
+      [
+        {text: '취소', style: 'cancel'},
+        {text: '삭제', style: 'destructive', onPress: () => onBack()},
+      ],
+    );
+  };
+
+  const roleBadge = role === 'OWNER'
+    ? {label: '모임장', bg: '#fff7ed', text: '#ea580c'}
+    : role === 'MANAGER'
+    ? {label: '운영진', bg: '#eff6ff', text: '#3b82f6'}
+    : null;
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
@@ -859,17 +998,317 @@ export default function GroupDetailScreen({groupName, isLeader = false, onBack}:
           <MaterialIcons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text className="ml-3 flex-1 text-lg font-bold text-gray-900" numberOfLines={1}>
-          {groupName}
+          {group.name}
         </Text>
-        {isLeader && (
-          <View className="mr-2 rounded-full bg-orange-100 px-2 py-0.5">
-            <Text className="text-xs font-bold text-orange-500">모임장</Text>
+        {roleBadge && (
+          <View className="mr-2 rounded-full px-2 py-0.5" style={{backgroundColor: roleBadge.bg}}>
+            <Text className="text-xs font-bold" style={{color: roleBadge.text}}>{roleBadge.label}</Text>
           </View>
         )}
-        <TouchableOpacity hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+        <TouchableOpacity
+          onPress={() => setShowMenu(true)}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
           <MaterialIcons name="more-vert" size={24} color="#6b7280" />
         </TouchableOpacity>
       </View>
+
+      {/* ... 메뉴 바텀시트 */}
+      <Modal visible={showMenu} transparent animationType="slide">
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+          className="flex-1 justify-end"
+          style={{backgroundColor: 'rgba(0,0,0,0.35)'}}>
+          <TouchableOpacity activeOpacity={1} onPress={e => e.stopPropagation()}>
+            <SafeAreaView edges={['bottom']} style={{backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20}}>
+              <View style={{paddingTop: 12, paddingBottom: 8}}>
+                {/* 핸들 */}
+                <View className="mb-4 self-center h-1 w-10 rounded-full bg-gray-200" />
+
+                {/* 모임 정보 수정 — OWNER */}
+                {role === 'OWNER' && (
+                  <TouchableOpacity
+                    onPress={openEditModal}
+                    className="flex-row items-center px-6 py-4"
+                    style={{gap: 14}}>
+                    <MaterialIcons name="edit" size={22} color="#374151" />
+                    <Text className="text-base text-gray-800">모임 정보 수정</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 멤버 관리 — OWNER, MANAGER */}
+                {(role === 'OWNER' || role === 'MANAGER') && (
+                  <TouchableOpacity
+                    onPress={() => setShowMenu(false)}
+                    className="flex-row items-center px-6 py-4"
+                    style={{gap: 14}}>
+                    <MaterialIcons name="group" size={22} color="#374151" />
+                    <Text className="text-base text-gray-800">멤버 관리</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 구분선 */}
+                <View className="mx-6 my-1 h-px bg-gray-100" />
+
+                {/* 모임 탈퇴 — MANAGER, MEMBER */}
+                {(role === 'MANAGER' || role === 'MEMBER') && (
+                  <TouchableOpacity
+                    onPress={handleLeave}
+                    className="flex-row items-center px-6 py-4"
+                    style={{gap: 14}}>
+                    <MaterialIcons name="exit-to-app" size={22} color="#ef4444" />
+                    <Text className="text-base text-red-500">모임 탈퇴</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 모임 삭제 — OWNER */}
+                {role === 'OWNER' && (
+                  <TouchableOpacity
+                    onPress={handleDelete}
+                    className="flex-row items-center px-6 py-4"
+                    style={{gap: 14}}>
+                    <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
+                    <Text className="text-base text-red-500">모임 삭제</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 취소 */}
+                <TouchableOpacity
+                  onPress={() => setShowMenu(false)}
+                  className="mx-4 mt-2 mb-2 items-center rounded-2xl bg-gray-100 py-4">
+                  <Text className="text-sm font-semibold text-gray-500">취소</Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 모임 정보 수정 모달 */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setShowEditModal(false); resetEditForm(); }}>
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-white">
+          {/* 헤더 */}
+          <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
+            <TouchableOpacity onPress={() => { setShowEditModal(false); resetEditForm(); }}>
+              <Text className="text-base text-gray-500">취소</Text>
+            </TouchableOpacity>
+            <Text className="text-base font-bold text-gray-900">모임 정보 수정</Text>
+            <TouchableOpacity onPress={handleSaveEdit} disabled={saving}>
+              {saving ? (
+                <ActivityIndicator size="small" color="#f97316" />
+              ) : (
+                <Text className="text-base font-bold" style={{color: editCanSave ? '#f97316' : '#fed7aa'}}>
+                  저장
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1">
+            <ScrollView
+              contentContainerStyle={{padding: 20, paddingBottom: 40}}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled">
+
+              {/* 프로필 이미지 */}
+              <View className="mb-5 items-center">
+                <TouchableOpacity onPress={handlePickEditImage} activeOpacity={0.8}>
+                  {editImageUri || group.imageUri ? (
+                    <View>
+                      <Image
+                        source={{uri: editImageUri ?? group.imageUri}}
+                        style={{width: 88, height: 88, borderRadius: 20}}
+                      />
+                      <View style={{
+                        position: 'absolute', bottom: 0, right: 0,
+                        width: 26, height: 26, borderRadius: 13,
+                        backgroundColor: '#f97316', alignItems: 'center', justifyContent: 'center',
+                        borderWidth: 2, borderColor: '#fff',
+                      }}>
+                        <MaterialIcons name="edit" size={13} color="#fff" />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={{
+                      width: 88, height: 88, borderRadius: 20,
+                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center',
+                      borderWidth: 2, borderColor: '#e5e7eb', borderStyle: 'dashed',
+                    }}>
+                      <MaterialIcons name="add-a-photo" size={28} color="#9ca3af" />
+                      <Text className="mt-1 text-xs text-gray-400">사진 추가</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* 모임 이름 */}
+              <Text className="mb-1 text-sm font-semibold text-gray-700">
+                모임 이름 <Text className="text-orange-500">*</Text>
+              </Text>
+              <View className="mb-4">
+                <TextInput
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="예) 한강 러닝 크루"
+                  placeholderTextColor="#9ca3af"
+                  className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                  style={{borderWidth: 1, borderColor: editNameError ? '#ef4444' : '#e5e7eb'}}
+                  maxLength={30}
+                />
+                {editNameError && <Text className="mt-1 text-xs text-red-400">{editNameError}</Text>}
+              </View>
+
+              {/* 소개 */}
+              <Text className="mb-1 text-sm font-semibold text-gray-700">소개 (선택)</Text>
+              <TextInput
+                value={editDesc}
+                onChangeText={setEditDesc}
+                placeholder="모임을 간단히 소개해 주세요"
+                placeholderTextColor="#9ca3af"
+                multiline
+                textAlignVertical="top"
+                className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb', height: 72}}
+                maxLength={100}
+              />
+
+              {/* 지역 */}
+              <Text className="mb-2 text-sm font-semibold text-gray-700">
+                지역 <Text className="text-orange-500">*</Text>
+              </Text>
+              <View className="flex-row flex-wrap" style={{gap: 8}}>
+                {sidoList.map(area => {
+                  const r = toShortLabel(area.areaName);
+                  const active = editRegion === r;
+                  return (
+                    <TouchableOpacity
+                      key={area.areaCode}
+                      onPress={() => setEditRegion(r)}
+                      style={{
+                        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: active ? '#f97316' : '#e5e7eb',
+                        backgroundColor: active ? '#fff7ed' : '#f9fafb',
+                      }}>
+                      <Text style={{fontSize: 12, fontWeight: '600', color: active ? '#ea580c' : '#6b7280'}}>
+                        {r}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {editRegionError && <Text className="mt-1 text-xs text-red-400">{editRegionError}</Text>}
+              <View className="mb-4" />
+
+              {/* 태그 */}
+              <Text className="mb-1 text-sm font-semibold text-gray-700">태그 (선택, 최대 5개)</Text>
+              <View className="mb-2 flex-row items-center" style={{gap: 8}}>
+                <TextInput
+                  value={editTagInput}
+                  onChangeText={setEditTagInput}
+                  onSubmitEditing={addEditTag}
+                  placeholder="예) 새벽, 초보환영"
+                  placeholderTextColor="#9ca3af"
+                  returnKeyType="done"
+                  className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                  style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                  maxLength={10}
+                />
+                <TouchableOpacity
+                  onPress={addEditTag}
+                  className="h-11 w-11 items-center justify-center rounded-xl bg-orange-500">
+                  <MaterialIcons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              {editTagDuplicateError && <Text className="mt-1 text-xs text-red-400">이미 추가된 태그예요</Text>}
+              {editTags.length > 0 && (
+                <View className="mt-2 mb-4 flex-row flex-wrap" style={{gap: 6}}>
+                  {editTags.map(tag => (
+                    <TouchableOpacity
+                      key={tag}
+                      onPress={() => setEditTags(prev => prev.filter(t => t !== tag))}
+                      className="flex-row items-center rounded-full bg-orange-50 px-3 py-1"
+                      style={{gap: 4}}>
+                      <Text className="text-xs font-semibold text-orange-500">#{tag}</Text>
+                      <MaterialIcons name="close" size={12} color="#f97316" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {!editTags.length && <View className="mb-4" />}
+
+              {/* 최대 인원 + 운영진 */}
+              <View className="flex-row" style={{gap: 12}}>
+                <View className="flex-1">
+                  <Text className="mb-1 text-sm font-semibold text-gray-700">
+                    최대 인원 <Text className="text-orange-500">*</Text>
+                  </Text>
+                  <View className="flex-row items-center" style={{gap: 6}}>
+                    <TextInput
+                      value={editMaxMembers}
+                      onChangeText={v => {
+                        const cleaned = v.replace(/[^0-9]/g, '');
+                        setEditMaxMembers(cleaned);
+                        const num = Number(cleaned);
+                        const limit = Math.floor(num * 0.2);
+                        if (cleaned && num >= 2 && num <= 1000 && limit === 0) {
+                          setEditMaxOperators('0');
+                        } else {
+                          setEditMaxOperators('');
+                        }
+                      }}
+                      placeholder="최대 1000"
+                      placeholderTextColor="#9ca3af"
+                      keyboardType="numeric"
+                      maxLength={4}
+                      className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                      style={{borderWidth: 1, borderColor: editMembersError ? '#ef4444' : '#e5e7eb'}}
+                    />
+                    <Text className="text-sm text-gray-500">명</Text>
+                  </View>
+                  {editMembersError && <Text className="mt-1 text-xs text-red-400">{editMembersError}</Text>}
+                </View>
+
+                <View className="flex-1">
+                  <Text className="mb-1 text-sm font-semibold text-gray-700">
+                    운영진 <Text className="text-orange-500">*</Text>
+                  </Text>
+                  <View className="flex-row items-center" style={{gap: 6}}>
+                    <TextInput
+                      value={editMaxOperators}
+                      onChangeText={v => setEditMaxOperators(v.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                      placeholderTextColor="#9ca3af"
+                      keyboardType="numeric"
+                      maxLength={3}
+                      editable={editMembersValid && editMaxOpLimit > 0}
+                      className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: editOpError ? '#ef4444' : '#e5e7eb',
+                        opacity: !editMembersValid ? 0.5 : 1,
+                      }}
+                    />
+                    <Text className="text-sm text-gray-500">명</Text>
+                  </View>
+                  {editMembersValid && (
+                    <Text className={`mt-1 text-xs ${editOpError ? 'text-red-400' : 'text-gray-400'}`}>
+                      {editOpError ?? `최대 ${editMaxOpLimit}명 (인원의 20%)`}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
 
       {/* 탭 */}
       <View
