@@ -1,7 +1,7 @@
 import React, {createContext, useContext, useEffect, useRef, useState} from 'react';
 import Config from 'react-native-config';
 import {GroupResponse, GroupRole} from '../types';
-import {fetchGroups, fetchMyGroups, createGroupApi, updateGroupApi, applyGroupApi} from '../services/groupApi';
+import {fetchGroups, fetchMyGroups, createGroupApi, updateGroupApi, applyGroupApi, leaveGroupApi} from '../services/groupApi';
 import {areaCodeToLabel, labelToAreaCode} from '../constants/regions';
 import {useUser} from './UserContext';
 
@@ -50,6 +50,7 @@ type GroupContextType = {
   applyGroup: (id: string) => Promise<void>;
   createGroup: (params: CreateGroupParams) => Promise<void>;
   updateGroup: (params: UpdateGroupParams) => Promise<void>;
+  leaveGroup: (groupIdx: number) => Promise<void>;
   refreshMyGroups: () => Promise<void>;
   searchGroups: (params?: SearchGroupsParams) => Promise<void>;
 };
@@ -62,6 +63,7 @@ const GroupContext = createContext<GroupContextType>({
   applyGroup: async () => {},
   createGroup: async _p => {},
   updateGroup: async _p => {},
+  leaveGroup: async _p => {},
   refreshMyGroups: async () => {},
   searchGroups: async () => {},
 });
@@ -378,6 +380,17 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     }
   };
 
+  // ── 모임 탈퇴 ───────────────────────────────────────────
+  const leaveGroup = async (groupIdx: number) => {
+    await leaveGroupApi(groupIdx);
+    const id = String(groupIdx);
+    setMyGroups(prev => prev.filter(g => g.groupIdx !== groupIdx));
+    setGroups(prev =>
+      prev.map(g => g.groupIdx === groupIdx ? {...g, status: 'none' as GroupStatus, role: null, isLeader: false} : g),
+    );
+    pendingIdsRef.current = pendingIdsRef.current.filter(pid => pid !== id);
+  };
+
   return (
     <GroupContext.Provider
       value={{
@@ -388,6 +401,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
         applyGroup,
         createGroup,
         updateGroup,
+        leaveGroup,
         refreshMyGroups: loadMyGroups,
         searchGroups: loadGroups,
       }}>

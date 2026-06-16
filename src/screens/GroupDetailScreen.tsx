@@ -1154,7 +1154,7 @@ type Props = {
 };
 
 export default function GroupDetailScreen({group, onBack}: Props) {
-  const {updateGroup} = useGroups();
+  const {updateGroup, leaveGroup} = useGroups();
   const {sidoList} = useAreas();
   const {user} = useUser();
 
@@ -1282,7 +1282,19 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       `'${group.name}' 모임에서 탈퇴하시겠어요?`,
       [
         {text: '취소', style: 'cancel'},
-        {text: '탈퇴', style: 'destructive', onPress: () => onBack()},
+        {
+          text: '탈퇴',
+          style: 'destructive',
+          onPress: async () => {
+            if (!group.groupIdx) { onBack(); return; }
+            try {
+              await leaveGroup(group.groupIdx);
+              onBack();
+            } catch (e: any) {
+              Alert.alert('오류', e.message ?? '탈퇴에 실패했어요.');
+            }
+          },
+        },
       ],
     );
   };

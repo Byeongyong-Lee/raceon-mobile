@@ -186,6 +186,15 @@ export async function changeMemberRole(
   if (!json.success) throw new Error(json.message ?? '서버 오류');
 }
 
+// ── 모임 탈퇴 ─────────────────────────────────────────────
+export async function leaveGroupApi(groupIdx: number): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/members/me`,
+    {method: 'DELETE'},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
 // ── 가입 신청 ─────────────────────────────────────────────
 export async function applyGroupApi(groupIdx: number, message?: string): Promise<void> {
   const json = await apiFetch<ApiResult<null>>(
