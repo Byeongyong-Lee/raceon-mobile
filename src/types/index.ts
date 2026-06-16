@@ -68,6 +68,28 @@ export type ApplicationItem = {
   createDt: string;
 };
 
+export type MeetupStatus = 'ATTEND' | 'ABSENT' | 'PENDING';
+
+export type Meetup = {
+  meetupIdx: number;
+  groupIdx: number;
+  createdBy: number;
+  title: string;
+  description: string | null;
+  meetupDt: string;
+  location: string;
+  createDt: string;
+};
+
+export type MeetupParticipant = {
+  participantIdx: number;
+  meetupIdx: number;
+  userIdx: number;
+  status: MeetupStatus;
+  createDt: string;
+  updateDt: string;
+};
+
 export type ChatMessage = {
   chatIdx: number;
   senderIdx: number;

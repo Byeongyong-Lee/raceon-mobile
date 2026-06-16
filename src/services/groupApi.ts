@@ -1,7 +1,7 @@
 import Config from 'react-native-config';
 import {apiFetch} from './apiClient';
 import {tokenStorage} from './tokenStorage';
-import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole, BoardPost, BoardComment, ChatMessage} from '../types';
+import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole, BoardPost, BoardComment, ChatMessage, Meetup, MeetupParticipant, MeetupStatus} from '../types';
 
 const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
@@ -199,6 +199,69 @@ export async function leaveGroupApi(groupIdx: number): Promise<void> {
     {method: 'DELETE'},
   );
   if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+// ── 모임(약속) ────────────────────────────────────────────
+export async function fetchMeetups(groupIdx: number): Promise<Meetup[]> {
+  const json = await apiFetch<ApiResult<Meetup[]>>(`/api/groups/${groupIdx}/meetups`);
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data ?? [];
+}
+
+export async function createMeetup(
+  groupIdx: number,
+  params: {title: string; description: string | null; meetupDt: string; location: string},
+): Promise<Meetup> {
+  const json = await apiFetch<ApiResult<Meetup>>(`/api/groups/${groupIdx}/meetups`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data;
+}
+
+export async function updateMeetup(
+  groupIdx: number,
+  meetupIdx: number,
+  params: {title: string; description: string | null; meetupDt: string; location: string},
+): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/meetups/${meetupIdx}`,
+    {method: 'PATCH', body: JSON.stringify(params)},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+export async function deleteMeetup(groupIdx: number, meetupIdx: number): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/meetups/${meetupIdx}`,
+    {method: 'DELETE'},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+export async function respondMeetup(
+  groupIdx: number,
+  meetupIdx: number,
+  status: MeetupStatus,
+): Promise<MeetupParticipant> {
+  const json = await apiFetch<ApiResult<MeetupParticipant>>(
+    `/api/groups/${groupIdx}/meetups/${meetupIdx}/respond`,
+    {method: 'POST', body: JSON.stringify({status})},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data;
+}
+
+export async function fetchMeetupParticipants(
+  groupIdx: number,
+  meetupIdx: number,
+): Promise<MeetupParticipant[]> {
+  const json = await apiFetch<ApiResult<MeetupParticipant[]>>(
+    `/api/groups/${groupIdx}/meetups/${meetupIdx}/participants`,
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data ?? [];
 }
 
 // ── 채팅 기록 ─────────────────────────────────────────────

@@ -39,67 +39,17 @@ import {
   createBoardComment,
   deleteBoardComment,
   fetchChatHistory,
+  fetchMeetups,
+  createMeetup,
+  updateMeetup,
+  deleteMeetup,
+  respondMeetup,
+  fetchMeetupParticipants,
 } from '../services/groupApi';
-import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, ChatMessage} from '../types';
+import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, ChatMessage, Meetup, MeetupParticipant, MeetupStatus} from '../types';
 
 type TabType = '게시판' | '채팅' | '모임';
 
-
-type ConnectedRace = {
-  name: string;
-  /** ISO datetime — 대회 시작 시각 */
-  startTime: string;
-  /** ISO datetime — 대회 종료 시각 */
-  endTime: string;
-};
-
-type GroupMeeting = {
-  id: string;
-  title: string;
-  /** 'YYYY-MM-DD HH:mm' */
-  datetime: string;
-  location: string;
-  attendeeCount: number;
-  maxAttendees: number;
-  isAttending: boolean;
-  connectedRace?: ConnectedRace;
-};
-
-
-const MOCK_MEETINGS: GroupMeeting[] = [
-  {
-    id: '1',
-    title: '일요일 한강 새벽 러닝',
-    datetime: '2026-06-15 07:00',
-    location: '뚝섬역 1번 출구',
-    attendeeCount: 7,
-    maxAttendees: 20,
-    isAttending: true,
-  },
-  {
-    id: '2',
-    title: '서울하프마라톤 단체 참가',
-    datetime: '2026-06-21 08:00',
-    location: '잠실올림픽주경기장',
-    attendeeCount: 12,
-    maxAttendees: 30,
-    isAttending: false,
-    connectedRace: {
-      name: '서울하프마라톤 2026',
-      startTime: '2026-06-21 08:00',
-      endTime: '2026-06-21 14:00',
-    },
-  },
-  {
-    id: '3',
-    title: '수요일 저녁 인터벌 훈련',
-    datetime: '2026-06-18 19:30',
-    location: '올림픽공원 평화의광장',
-    attendeeCount: 4,
-    maxAttendees: 15,
-    isAttending: false,
-  },
-];
 
 // ─────────────────────────────────────────
 // 게시글 상세 + 댓글
@@ -767,122 +717,216 @@ function ChatTab({groupIdx, myUserIdx}: {groupIdx: number; myUserIdx: number}) {
 // 모임 탭
 // ─────────────────────────────────────────
 
-/** 현재 시각이 대회 시간 범위 안에 있는지 확인 */
-function isRaceActive(race: ConnectedRace): boolean {
-  const now = Date.now();
-  const start = new Date(race.startTime).getTime();
-  const end = new Date(race.endTime).getTime();
-  return now >= start && now <= end;
+function formatMeetupDt(dt: string): string {
+  const d = new Date(dt);
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const dow = weekdays[d.getDay()];
+  return `${month}월 ${day}일 (${dow}) ${hh}:${mm}`;
 }
 
-type RaceOption = ConnectedRace & {id: string};
+type ParticipantInfo = {
+  attendCount: number;
+  myStatus: MeetupStatus | null;
+  list: MeetupParticipant[];
+};
 
-const MOCK_RACE_OPTIONS: RaceOption[] = [
-  {
-    id: 'r1',
-    name: '서울하프마라톤 2026',
-    startTime: '2026-06-21 08:00',
-    endTime: '2026-06-21 14:00',
-  },
-  {
-    id: 'r2',
-    name: '한강 10K 챌린지',
-    startTime: '2026-06-28 07:30',
-    endTime: '2026-06-28 11:00',
-  },
-  {
-    id: 'r3',
-    name: '춘천마라톤 2026',
-    startTime: '2026-10-25 09:00',
-    endTime: '2026-10-25 17:00',
-  },
-];
+function MeetingTab({
+  groupIdx,
+  myUserIdx,
+  role,
+}: {
+  groupIdx: number;
+  myUserIdx: number;
+  role: GroupRole | null;
+}) {
+  const [meetups, setMeetups] = useState<Meetup[]>([]);
+  const [participantMap, setParticipantMap] = useState<Record<number, ParticipantInfo>>({});
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingMeetup, setEditingMeetup] = useState<Meetup | null>(null);
+  const [showParticipantsFor, setShowParticipantsFor] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-function MeetingTab({isLeader}: {isLeader: boolean}) {
-  const [meetings, setMeetings] = useState<GroupMeeting[]>(MOCK_MEETINGS);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDatetime, setNewDatetime] = useState('');
-  const [newLocation, setNewLocation] = useState('');
-  const [raceLinked, setRaceLinked] = useState(false);
-  const [selectedRace, setSelectedRace] = useState<RaceOption | null>(null);
-  const [showRacePicker, setShowRacePicker] = useState(false);
+  // 폼
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formDatetime, setFormDatetime] = useState('');
+  const [formLocation, setFormLocation] = useState('');
 
-  const [locationShareTarget, setLocationShareTarget] = useState<GroupMeeting | null>(null);
+  const canManage = role === 'OWNER' || role === 'MANAGER';
 
-  const resetCreateForm = () => {
-    setNewTitle('');
-    setNewDatetime('');
-    setNewLocation('');
-    setRaceLinked(false);
-    setSelectedRace(null);
-    setShowRacePicker(false);
+  const load = async () => {
+    try {
+      const list = await fetchMeetups(groupIdx);
+      setMeetups(list);
+      if (list.length > 0) {
+        const results = await Promise.all(
+          list.map(m => fetchMeetupParticipants(groupIdx, m.meetupIdx)),
+        );
+        const map: Record<number, ParticipantInfo> = {};
+        list.forEach((m, i) => {
+          const parts = results[i];
+          const mine = parts.find(p => p.userIdx === myUserIdx);
+          map[m.meetupIdx] = {
+            attendCount: parts.filter(p => p.status === 'ATTEND').length,
+            myStatus: mine?.status ?? null,
+            list: parts,
+          };
+        });
+        setParticipantMap(map);
+      }
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '데이터를 불러오지 못했어요.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleAttend = (id: string) => {
-    setMeetings(prev =>
-      prev.map(m => {
-        if (m.id !== id) return m;
-        const joining = !m.isAttending;
+  React.useEffect(() => { load(); }, []);
+
+  const handleRespond = async (meetupIdx: number, status: MeetupStatus) => {
+    const current = participantMap[meetupIdx]?.myStatus;
+    const newStatus: MeetupStatus = current === status ? 'PENDING' : status;
+    try {
+      const result = await respondMeetup(groupIdx, meetupIdx, newStatus);
+      setParticipantMap(prev => {
+        const old = prev[meetupIdx] ?? {attendCount: 0, myStatus: null, list: []};
+        const existingIdx = old.list.findIndex(p => p.userIdx === myUserIdx);
+        const updated =
+          existingIdx >= 0
+            ? old.list.map(p => (p.userIdx === myUserIdx ? {...p, status: newStatus} : p))
+            : [...old.list, result];
         return {
-          ...m,
-          isAttending: joining,
-          attendeeCount: joining ? m.attendeeCount + 1 : m.attendeeCount - 1,
+          ...prev,
+          [meetupIdx]: {
+            attendCount: updated.filter(p => p.status === 'ATTEND').length,
+            myStatus: newStatus,
+            list: updated,
+          },
         };
-      }),
-    );
+      });
+    } catch (e: any) {
+      Alert.alert('오류', e.message);
+    }
   };
 
-  const handleCreate = () => {
-    if (!newTitle.trim() || !newDatetime.trim() || !newLocation.trim()) return;
-    setMeetings(prev => [
-      {
-        id: String(Date.now()),
-        title: newTitle.trim(),
-        datetime: newDatetime.trim(),
-        location: newLocation.trim(),
-        attendeeCount: 1,
-        maxAttendees: 30,
-        isAttending: true,
-        connectedRace: raceLinked && selectedRace
-          ? {name: selectedRace.name, startTime: selectedRace.startTime, endTime: selectedRace.endTime}
-          : undefined,
-      },
-      ...prev,
-    ]);
-    resetCreateForm();
-    setShowCreateModal(false);
+  const openCreate = () => {
+    setEditingMeetup(null);
+    setFormTitle('');
+    setFormDesc('');
+    setFormDatetime('');
+    setFormLocation('');
+    setShowModal(true);
   };
+
+  const openEdit = (m: Meetup) => {
+    setEditingMeetup(m);
+    setFormTitle(m.title);
+    setFormDesc(m.description ?? '');
+    setFormDatetime(m.meetupDt?.slice(0, 16).replace('T', ' ') ?? '');
+    setFormLocation(m.location);
+    setShowModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formTitle.trim() || !formDatetime.trim() || !formLocation.trim() || submitting) return;
+    const meetupDt = formDatetime.trim().replace(' ', 'T');
+    setSubmitting(true);
+    try {
+      const params = {
+        title: formTitle.trim(),
+        description: formDesc.trim() || null,
+        meetupDt,
+        location: formLocation.trim(),
+      };
+      if (editingMeetup) {
+        await updateMeetup(groupIdx, editingMeetup.meetupIdx, params);
+        setMeetups(prev =>
+          prev.map(m =>
+            m.meetupIdx === editingMeetup.meetupIdx
+              ? {...m, ...params, meetupDt}
+              : m,
+          ),
+        );
+      } else {
+        const created = await createMeetup(groupIdx, params);
+        setMeetups(prev => [...prev, created]);
+        setParticipantMap(prev => ({
+          ...prev,
+          [created.meetupIdx]: {attendCount: 0, myStatus: null, list: []},
+        }));
+      }
+      setShowModal(false);
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '실패했어요.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = (m: Meetup) => {
+    Alert.alert(`'${m.title}' 삭제`, '이 약속을 삭제하시겠어요?', [
+      {text: '취소', style: 'cancel'},
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMeetup(groupIdx, m.meetupIdx);
+            setMeetups(prev => prev.filter(x => x.meetupIdx !== m.meetupIdx));
+          } catch (e: any) {
+            Alert.alert('오류', e.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const canSubmit = formTitle.trim() && formDatetime.trim() && formLocation.trim();
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#f97316" />
+      </View>
+    );
+  }
+
+  const participantsModalList = showParticipantsFor
+    ? (participantMap[showParticipantsFor]?.list ?? [])
+    : [];
 
   return (
     <View className="flex-1">
       <FlatList
-        data={meetings}
-        keyExtractor={item => item.id}
+        data={meetups}
+        keyExtractor={item => String(item.meetupIdx)}
         contentContainerStyle={{padding: 16, paddingBottom: 90}}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          meetings.length === 0 ? null : (
+          meetups.length === 0 ? null : (
             <Text className="mb-3 text-xs font-semibold text-gray-400">
-              이번 주 모임 {meetings.length}개
+              예정된 약속 {meetups.length}개
             </Text>
           )
         }
         ListEmptyComponent={
           <View className="mt-20 items-center">
             <MaterialIcons name="event" size={52} color="#d1d5db" />
-            <Text className="mt-3 text-sm font-semibold text-gray-400">
-              예정된 모임이 없어요
-            </Text>
-            {isLeader && (
-              <Text className="mt-1 text-xs text-gray-400">
-                아래 + 버튼으로 모임을 만들어보세요
-              </Text>
+            <Text className="mt-3 text-sm font-semibold text-gray-400">예정된 약속이 없어요</Text>
+            {canManage && (
+              <Text className="mt-1 text-xs text-gray-400">+ 버튼으로 약속을 만들어보세요</Text>
             )}
           </View>
         }
         renderItem={({item}) => {
-          const raceActive = item.connectedRace ? isRaceActive(item.connectedRace) : false;
+          const info = participantMap[item.meetupIdx];
+          const myStatus = info?.myStatus ?? null;
+          const attendCount = info?.attendCount ?? 0;
 
           return (
             <View
@@ -894,44 +938,40 @@ function MeetingTab({isLeader}: {isLeader: boolean}) {
                 shadowRadius: 8,
                 shadowOffset: {width: 0, height: 2},
               }}>
-              {/* 대회 연동 배지 */}
-              {item.connectedRace && (
-                <View
-                  className="flex-row items-center px-4 py-2"
-                  style={{
-                    backgroundColor: raceActive ? '#fff7ed' : '#f9fafb',
-                    borderBottomWidth: 1,
-                    borderBottomColor: raceActive ? '#fed7aa' : '#f3f4f6',
-                    gap: 6,
-                  }}>
-                  <MaterialIcons
-                    name={raceActive ? 'location-on' : 'emoji-events'}
-                    size={14}
-                    color={raceActive ? '#f97316' : '#6b7280'}
-                  />
-                  <Text
-                    className="flex-1 text-xs font-semibold"
-                    style={{color: raceActive ? '#ea580c' : '#6b7280'}}
-                    numberOfLines={1}>
-                    {raceActive
-                      ? '대회 진행 중 · 위치공유 활성화'
-                      : `대회 연동 · ${item.connectedRace.name}`}
+              <View className="px-4 py-4">
+                {/* 제목 + 관리 버튼 */}
+                <View className="flex-row items-start justify-between">
+                  <Text className="flex-1 text-sm font-bold text-gray-900" numberOfLines={2}>
+                    {item.title}
                   </Text>
-                  {raceActive && (
-                    <View className="h-2 w-2 rounded-full bg-orange-500" />
+                  {canManage && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        Alert.alert(item.title, undefined, [
+                          {text: '취소', style: 'cancel'},
+                          {text: '수정', onPress: () => openEdit(item)},
+                          {text: '삭제', style: 'destructive', onPress: () => handleDelete(item)},
+                        ])
+                      }
+                      hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+                      className="ml-2">
+                      <MaterialIcons name="more-vert" size={18} color="#9ca3af" />
+                    </TouchableOpacity>
                   )}
                 </View>
-              )}
 
-              <View className="px-4 py-4">
-                {/* 제목 */}
-                <Text className="text-sm font-bold text-gray-900">{item.title}</Text>
+                {/* 설명 */}
+                {!!item.description && (
+                  <Text className="mt-1 text-xs text-gray-400" numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                )}
 
                 {/* 날짜·장소 */}
                 <View className="mt-2" style={{gap: 4}}>
                   <View className="flex-row items-center" style={{gap: 6}}>
                     <MaterialIcons name="schedule" size={13} color="#9ca3af" />
-                    <Text className="text-xs text-gray-500">{item.datetime}</Text>
+                    <Text className="text-xs text-gray-500">{formatMeetupDt(item.meetupDt)}</Text>
                   </View>
                   <View className="flex-row items-center" style={{gap: 6}}>
                     <MaterialIcons name="place" size={13} color="#9ca3af" />
@@ -941,69 +981,52 @@ function MeetingTab({isLeader}: {isLeader: boolean}) {
                   </View>
                 </View>
 
-                {/* 참석 인원 + 버튼 */}
+                {/* 참석 인원 + 응답 버튼 */}
                 <View className="mt-3 flex-row items-center justify-between">
-                  <View className="flex-row items-center" style={{gap: 4}}>
+                  {/* 참석자 수 */}
+                  <TouchableOpacity
+                    onPress={() => setShowParticipantsFor(item.meetupIdx)}
+                    className="flex-row items-center"
+                    style={{gap: 4}}>
                     <MaterialIcons name="group" size={14} color="#9ca3af" />
-                    <Text className="text-xs text-gray-400">
-                      {item.attendeeCount}
-                      <Text className="text-gray-300"> / {item.maxAttendees}명</Text>
-                    </Text>
-                    {item.isAttending && (
-                      <View className="ml-1 rounded-full bg-green-50 px-2 py-0.5">
-                        <Text className="text-xs font-semibold text-green-600">참석 예정</Text>
-                      </View>
-                    )}
-                  </View>
+                    <Text className="text-xs text-gray-400">참석 {attendCount}명</Text>
+                    <MaterialIcons name="chevron-right" size={13} color="#d1d5db" />
+                  </TouchableOpacity>
 
-                  <View className="flex-row items-center" style={{gap: 8}}>
-                    {/* 위치공유 버튼 — 대회 연동 + 대회 진행 중일 때만 활성 */}
-                    {item.connectedRace && item.isAttending && (
-                      <TouchableOpacity
-                        onPress={() => raceActive && setLocationShareTarget(item)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 20,
-                          backgroundColor: raceActive ? '#fff7ed' : '#f3f4f6',
-                          borderWidth: 1,
-                          borderColor: raceActive ? '#fed7aa' : '#e5e7eb',
-                        }}>
-                        <MaterialIcons
-                          name="my-location"
-                          size={13}
-                          color={raceActive ? '#f97316' : '#9ca3af'}
-                        />
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: '600',
-                            color: raceActive ? '#ea580c' : '#9ca3af',
-                          }}>
-                          {raceActive ? '위치공유' : '대회 전'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* 참석/취소 버튼 */}
+                  {/* 참석 / 불참 버튼 */}
+                  <View className="flex-row" style={{gap: 6}}>
                     <TouchableOpacity
-                      onPress={() => toggleAttend(item.id)}
+                      onPress={() => handleRespond(item.meetupIdx, 'ATTEND')}
                       style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 7,
+                        paddingHorizontal: 14,
+                        paddingVertical: 6,
                         borderRadius: 20,
-                        backgroundColor: item.isAttending ? '#f3f4f6' : '#f97316',
+                        backgroundColor: myStatus === 'ATTEND' ? '#f97316' : '#f3f4f6',
                       }}>
                       <Text
                         style={{
                           fontSize: 12,
                           fontWeight: 'bold',
-                          color: item.isAttending ? '#6b7280' : '#fff',
+                          color: myStatus === 'ATTEND' ? '#fff' : '#6b7280',
                         }}>
-                        {item.isAttending ? '참석 취소' : '참석하기'}
+                        참석
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleRespond(item.meetupIdx, 'ABSENT')}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 6,
+                        borderRadius: 20,
+                        backgroundColor: myStatus === 'ABSENT' ? '#ef4444' : '#f3f4f6',
+                      }}>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          color: myStatus === 'ABSENT' ? '#fff' : '#6b7280',
+                        }}>
+                        불참
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1014,10 +1037,10 @@ function MeetingTab({isLeader}: {isLeader: boolean}) {
         }}
       />
 
-      {/* 모임 만들기 FAB — 모임장·운영진만 노출 */}
-      {isLeader && (
+      {/* 약속 만들기 FAB */}
+      {canManage && (
         <TouchableOpacity
-          onPress={() => setShowCreateModal(true)}
+          onPress={openCreate}
           className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-orange-500"
           style={{
             elevation: 4,
@@ -1030,224 +1053,146 @@ function MeetingTab({isLeader}: {isLeader: boolean}) {
         </TouchableOpacity>
       )}
 
-      {/* 모임 만들기 모달 */}
-      <Modal visible={showCreateModal} transparent animationType="fade">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => { setShowCreateModal(false); resetCreateForm(); }}
-          className="flex-1 justify-center"
-          style={{backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 24}}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={e => e.stopPropagation()}
-            style={{backgroundColor: '#fff', borderRadius: 24, padding: 24}}>
-            <Text className="mb-4 text-lg font-bold text-gray-900">모임 만들기</Text>
-
-            <Text className="mb-1 text-xs font-semibold text-gray-500">모임 이름</Text>
-            <TextInput
-              value={newTitle}
-              onChangeText={setNewTitle}
-              placeholder="예) 일요일 새벽 러닝"
-              placeholderTextColor="#9ca3af"
-              className="mb-3 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-              style={{borderWidth: 1, borderColor: '#e5e7eb'}}
-              maxLength={30}
-            />
-
-            <Text className="mb-1 text-xs font-semibold text-gray-500">날짜·시간</Text>
-            <TextInput
-              value={newDatetime}
-              onChangeText={setNewDatetime}
-              placeholder="예) 2026-06-22 07:00"
-              placeholderTextColor="#9ca3af"
-              className="mb-3 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-              style={{borderWidth: 1, borderColor: '#e5e7eb'}}
-            />
-
-            <Text className="mb-1 text-xs font-semibold text-gray-500">장소</Text>
-            <TextInput
-              value={newLocation}
-              onChangeText={setNewLocation}
-              placeholder="예) 뚝섬역 1번 출구"
-              placeholderTextColor="#9ca3af"
-              className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-              style={{borderWidth: 1, borderColor: '#e5e7eb'}}
-              maxLength={40}
-            />
-
-            {/* 대회 연동 토글 */}
-            <TouchableOpacity
-              onPress={() => {
-                const next = !raceLinked;
-                setRaceLinked(next);
-                if (!next) {
-                  setSelectedRace(null);
-                  setShowRacePicker(false);
-                } else {
-                  setShowRacePicker(true);
-                }
-              }}
-              className="mb-1 flex-row items-center justify-between rounded-xl px-4 py-3"
-              style={{
-                borderWidth: 1,
-                borderColor: raceLinked ? '#fed7aa' : '#e5e7eb',
-                backgroundColor: raceLinked ? '#fff7ed' : '#f9fafb',
-              }}>
-              <View className="flex-row items-center" style={{gap: 8}}>
-                <MaterialIcons
-                  name="emoji-events"
-                  size={18}
-                  color={raceLinked ? '#f97316' : '#9ca3af'}
-                />
-                <Text
-                  className="text-sm font-semibold"
-                  style={{color: raceLinked ? '#ea580c' : '#6b7280'}}>
-                  대회 연동
-                </Text>
-              </View>
-              <View
-                style={{
-                  width: 40,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: raceLinked ? '#f97316' : '#d1d5db',
-                  justifyContent: 'center',
-                  paddingHorizontal: 2,
-                }}>
-                <View
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: 9,
-                    backgroundColor: '#fff',
-                    alignSelf: raceLinked ? 'flex-end' : 'flex-start',
-                    elevation: 1,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.15,
-                    shadowRadius: 2,
-                    shadowOffset: {width: 0, height: 1},
-                  }}
-                />
-              </View>
+      {/* 약속 생성/수정 모달 */}
+      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView edges={['top']} className="flex-1 bg-white">
+          <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
+            <TouchableOpacity onPress={() => setShowModal(false)}>
+              <Text className="text-base text-gray-500">취소</Text>
             </TouchableOpacity>
+            <Text className="text-base font-bold text-gray-900">
+              {editingMeetup ? '약속 수정' : '약속 만들기'}
+            </Text>
+            <TouchableOpacity onPress={handleSubmit} disabled={submitting}>
+              {submitting ? (
+                <ActivityIndicator size="small" color="#f97316" />
+              ) : (
+                <Text
+                  className="text-base font-bold"
+                  style={{color: canSubmit ? '#f97316' : '#fed7aa'}}>
+                  {editingMeetup ? '수정' : '만들기'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
-            {/* 대회 선택 패널 */}
-            {raceLinked && (
-              <View
-                className="mb-1 overflow-hidden rounded-xl"
-                style={{borderWidth: 1, borderColor: '#fed7aa', borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0}}>
-                <TouchableOpacity
-                  onPress={() => setShowRacePicker(p => !p)}
-                  className="flex-row items-center justify-between bg-orange-50 px-4 py-2.5">
-                  <Text className="text-xs font-semibold text-orange-700">
-                    {selectedRace ? selectedRace.name : '대회를 선택하세요'}
-                  </Text>
-                  <MaterialIcons
-                    name={showRacePicker ? 'expand-less' : 'expand-more'}
-                    size={18}
-                    color="#f97316"
-                  />
-                </TouchableOpacity>
-                {showRacePicker &&
-                  MOCK_RACE_OPTIONS.map((race, idx) => (
-                    <TouchableOpacity
-                      key={race.id}
-                      onPress={() => {
-                        setSelectedRace(race);
-                        setShowRacePicker(false);
-                      }}
-                      className="flex-row items-center justify-between px-4 py-3"
-                      style={{
-                        backgroundColor: selectedRace?.id === race.id ? '#fff7ed' : '#fff',
-                        borderTopWidth: idx === 0 ? 1 : 0,
-                        borderTopColor: '#fed7aa',
-                        borderBottomWidth: idx < MOCK_RACE_OPTIONS.length - 1 ? 1 : 0,
-                        borderBottomColor: '#f3f4f6',
-                      }}>
-                      <View style={{gap: 2}}>
-                        <Text
-                          className="text-sm font-semibold"
-                          style={{color: selectedRace?.id === race.id ? '#ea580c' : '#111827'}}>
-                          {race.name}
-                        </Text>
-                        <Text className="text-xs text-gray-400">{race.startTime}</Text>
-                      </View>
-                      {selectedRace?.id === race.id && (
-                        <MaterialIcons name="check-circle" size={18} color="#f97316" />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-              </View>
-            )}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1">
+            <ScrollView
+              contentContainerStyle={{padding: 20, paddingBottom: 40}}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled">
 
-            {raceLinked && selectedRace && (
-              <Text className="mb-3 mt-1 text-xs text-orange-500">
-                대회 시간({selectedRace.startTime} ~ {selectedRace.endTime.split(' ')[1]})에만 위치공유가 활성화돼요.
+              <Text className="mb-1 text-sm font-semibold text-gray-700">
+                약속 이름 <Text className="text-orange-500">*</Text>
               </Text>
-            )}
-            {raceLinked && !selectedRace && (
-              <Text className="mb-3 mt-1 text-xs text-gray-400">
-                대회를 선택하면 대회 당일 위치공유 기능을 쓸 수 있어요.
-              </Text>
-            )}
+              <TextInput
+                value={formTitle}
+                onChangeText={setFormTitle}
+                placeholder="예) 일요일 새벽 러닝"
+                placeholderTextColor="#9ca3af"
+                className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                maxLength={50}
+              />
 
-            <View className="mt-1 flex-row" style={{gap: 8}}>
-              <TouchableOpacity
-                onPress={() => { setShowCreateModal(false); resetCreateForm(); }}
-                className="flex-1 items-center rounded-xl bg-gray-100 py-3">
-                <Text className="text-sm font-bold text-gray-500">취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCreate}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{
-                  backgroundColor:
-                    newTitle.trim() && newDatetime.trim() && newLocation.trim()
-                      ? '#f97316'
-                      : '#fed7aa',
-                }}>
-                <Text className="text-sm font-bold text-white">만들기</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+              <Text className="mb-1 text-sm font-semibold text-gray-700">소개 (선택)</Text>
+              <TextInput
+                value={formDesc}
+                onChangeText={setFormDesc}
+                placeholder="약속을 간단히 설명해 주세요"
+                placeholderTextColor="#9ca3af"
+                multiline
+                textAlignVertical="top"
+                className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb', height: 72}}
+                maxLength={200}
+              />
+
+              <Text className="mb-1 text-sm font-semibold text-gray-700">
+                날짜·시간 <Text className="text-orange-500">*</Text>
+              </Text>
+              <TextInput
+                value={formDatetime}
+                onChangeText={setFormDatetime}
+                placeholder="예) 2026-06-22 07:00"
+                placeholderTextColor="#9ca3af"
+                className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+              />
+              <Text className="mb-4 mt-1 text-xs text-gray-400">
+                오늘로부터 10일 이내 날짜만 설정할 수 있어요
+              </Text>
+
+              <Text className="mb-1 text-sm font-semibold text-gray-700">
+                장소 <Text className="text-orange-500">*</Text>
+              </Text>
+              <TextInput
+                value={formLocation}
+                onChangeText={setFormLocation}
+                placeholder="예) 뚝섬역 1번 출구"
+                placeholderTextColor="#9ca3af"
+                className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                maxLength={100}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
-      {/* 위치공유 시작 확인 모달 */}
-      <Modal visible={!!locationShareTarget} transparent animationType="fade">
+      {/* 참석자 목록 모달 */}
+      <Modal visible={showParticipantsFor !== null} transparent animationType="fade">
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => setLocationShareTarget(null)}
-          className="flex-1 justify-center"
-          style={{backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 24}}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={e => e.stopPropagation()}
-            style={{backgroundColor: '#fff', borderRadius: 24, padding: 24}}>
-            <View className="mb-4 items-center">
-              <View className="mb-3 h-16 w-16 items-center justify-center rounded-full bg-orange-50">
-                <MaterialIcons name="my-location" size={32} color="#f97316" />
+          onPress={() => setShowParticipantsFor(null)}
+          className="flex-1 justify-end"
+          style={{backgroundColor: 'rgba(0,0,0,0.4)'}}>
+          <TouchableOpacity activeOpacity={1} onPress={e => e.stopPropagation()}>
+            <SafeAreaView
+              edges={['bottom']}
+              style={{backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24}}>
+              <View style={{paddingTop: 12, paddingHorizontal: 20, paddingBottom: 8}}>
+                <View className="mb-4 self-center h-1 w-10 rounded-full bg-gray-200" />
+                <Text className="mb-3 text-base font-bold text-gray-900">참석자 목록</Text>
+                {participantsModalList.length === 0 ? (
+                  <View className="py-8 items-center">
+                    <Text className="text-sm text-gray-400">아직 응답한 멤버가 없어요</Text>
+                  </View>
+                ) : (
+                  participantsModalList.map(p => {
+                    const statusLabel =
+                      p.status === 'ATTEND' ? '참석' : p.status === 'ABSENT' ? '불참' : '미정';
+                    const statusColor =
+                      p.status === 'ATTEND' ? '#f97316' : p.status === 'ABSENT' ? '#ef4444' : '#9ca3af';
+                    return (
+                      <View
+                        key={p.participantIdx}
+                        className="mb-2 flex-row items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                        <View className="flex-row items-center" style={{gap: 8}}>
+                          <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-200">
+                            <MaterialIcons name="person" size={18} color="#9ca3af" />
+                          </View>
+                          <Text className="text-sm font-semibold text-gray-800">
+                            {p.userIdx === myUserIdx ? '나' : `멤버 #${p.userIdx}`}
+                          </Text>
+                        </View>
+                        <View
+                          className="rounded-full px-3 py-0.5"
+                          style={{backgroundColor: statusColor + '20'}}>
+                          <Text
+                            className="text-xs font-bold"
+                            style={{color: statusColor}}>
+                            {statusLabel}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
               </View>
-              <Text className="text-base font-bold text-gray-900">위치공유 시작</Text>
-              <Text className="mt-1 text-center text-xs text-gray-400">
-                {locationShareTarget?.connectedRace?.name}
-              </Text>
-              <Text className="mt-2 text-center text-xs text-gray-500">
-                참석 멤버들에게 내 위치가 대회 코스 맵 위에 실시간으로 표시됩니다.
-              </Text>
-            </View>
-            <View className="flex-row" style={{gap: 8}}>
-              <TouchableOpacity
-                onPress={() => setLocationShareTarget(null)}
-                className="flex-1 items-center rounded-xl bg-gray-100 py-3">
-                <Text className="text-sm font-bold text-gray-500">취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setLocationShareTarget(null)}
-                className="flex-1 items-center rounded-xl bg-orange-500 py-3">
-                <Text className="text-sm font-bold text-white">시작하기</Text>
-              </TouchableOpacity>
-            </View>
+            </SafeAreaView>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -2082,7 +2027,9 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       {activeTab === '채팅' && (
         <ChatTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} />
       )}
-      {activeTab === '모임' && <MeetingTab isLeader={isLeader} />}
+      {activeTab === '모임' && (
+        <MeetingTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} role={role} />
+      )}
     </SafeAreaView>
   );
 }
