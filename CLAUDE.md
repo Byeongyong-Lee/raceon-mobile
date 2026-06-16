@@ -42,7 +42,7 @@ raceon-mobile/
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
 │   ├── context/
 │   │   ├── AreaContext.tsx           # 행정구역 전역 상태 (앱 시작 시 level=1 시도 목록 fetch)
-│   │   ├── GroupContext.tsx          # 모임 전역 상태 (groups: mock 탐색용 / myGroups: API 연동)
+│   │   ├── GroupContext.tsx          # 모임 전역 상태 (groups·myGroups 모두 API 연동, 낙관적 업데이트)
 │   │   └── UserContext.tsx          # 유저·토큰·내 대회 전역 상태 관리
 │   ├── hooks/
 │   │   └── useLogin.ts              # 소셜 로그인 공통 훅 (소셜 SDK → 서버 API → 토큰 저장)
@@ -50,7 +50,7 @@ raceon-mobile/
 │   │   ├── apiClient.ts             # Bearer 토큰 자동 첨부 fetch 래퍼
 │   │   ├── areasApi.ts              # GET /api/areas — 행정구역 조회 (인증 불필요)
 │   │   ├── authApi.ts               # POST /api/auth/{provider} — JWT 발급
-│   │   ├── groupApi.ts              # GET /api/groups/me · POST /api/groups · POST /api/groups/{idx}/applications
+│   │   ├── groupApi.ts              # 모임 CRUD·멤버·신청·게시판·댓글·채팅·약속 전체 API
 │   │   ├── tokenStorage.ts          # AsyncStorage 기반 JWT 저장/조회/삭제
 │   │   └── userRaceApi.ts           # GET·POST·DELETE /api/user-races — 내 대회 서버 연동
 │   ├── navigation/
@@ -67,7 +67,7 @@ raceon-mobile/
 │   ├── constants/
 │   │   └── regions.ts               # 시도 지역 코드 (label·fullName·areaCode) 및 유틸 함수
 │   ├── types/
-│   │   └── index.ts                 # 공유 타입 (Race, UserRace, SocialProvider)
+│   │   └── index.ts                 # 공유 타입 (Race, UserRace, Group, Meetup, ChatMessage, BoardPost 등)
 │   └── utils/
 │       └── race.ts                  # 날짜 유틸 함수 (getDdayLabel 등)
 ├── android/                         # Android 네이티브 코드
@@ -122,9 +122,9 @@ npm run test
 | 화면 | 파일 경로 | 설명 | 추가일 |
 |------|-----------|------|--------|
 | 홈 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 + D-day | 2026-06-06 |
-| 모임 목록 | `src/screens/GroupListScreen.tsx` | 전체 모임 탐색·검색·코드 참가 | 2026-06-15 |
+| 모임 목록 | `src/screens/GroupListScreen.tsx` | 전체 모임 탐색·검색·지역 필터·가입 신청 (서버 연동) | 2026-06-15 |
 | 내 모임 | `src/screens/CommunityScreen.tsx` | 모임 목록·만들기·코드 참가 | 2026-06-12 |
-| 모임 상세 | `src/screens/GroupDetailScreen.tsx` | 게시판·채팅·실시간 위치 탭 | 2026-06-12 |
+| 모임 상세 | `src/screens/GroupDetailScreen.tsx` | 게시판(CRUD·공지·댓글)·채팅(STOMP 실시간)·약속 탭 (서버 연동) | 2026-06-12 |
 | 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 | 2026-06-06 |
 | 대회 상세 | `src/screens/RaceDetailScreen.tsx` | 대회 상세 정보·지도 연결·내 대회 추가 | 2026-06-09 |
 | 설정 | `src/screens/SettingsScreen.tsx` | 프로필·로그아웃·앱 정보 | 2026-06-08 |

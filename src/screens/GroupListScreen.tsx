@@ -22,29 +22,6 @@ import {useAreas} from '../context/AreaContext';
 import {labelToAreaCode, toShortLabel} from '../constants/regions';
 
 // ──────────────────────────────────────────────────────────
-type Level = '왕초보' | '하' | '중' | '상';
-
-type ApplicationForm = {
-  name: string;
-  birthdate: string;
-  age: string;
-  level: Level | null;
-  paceMin: string;
-  paceSec: string;
-  maxKm: string;
-  selfIntro: string;
-};
-
-const INITIAL_FORM: ApplicationForm = {
-  name: '',
-  birthdate: '',
-  age: '',
-  level: null,
-  paceMin: '',
-  paceSec: '',
-  maxKm: '',
-  selfIntro: '',
-};
 
 const STATUS_CONFIG: Record<GroupStatus, {label: string; color: string; bg: string}> = {
   joined:  {label: '참여 중',    color: '#f97316', bg: '#fff7ed'},
@@ -107,7 +84,7 @@ function GroupIntroModal({
               <MaterialIcons name="person" size={14} color="#9ca3af" />
               <Text className="text-sm text-gray-400">
                 {group.memberCount}
-                <Text className="text-gray-300"> / {group.maxMembers}명</Text>
+                <Text className="text-gray-300"> / {group.maxMembers >= 999999 ? '무제한' : `${group.maxMembers}명`}</Text>
               </Text>
               {group.status !== 'none' && (
                 <View
@@ -169,25 +146,14 @@ function GroupIntroModal({
 // ─── 신청 폼 모달 ─────────────────────────────────────────
 function ApplicationModal({
   groupName,
-  userName,
   onClose,
   onSubmit,
 }: {
   groupName: string;
-  userName: string;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (message: string) => void;
 }) {
-  const [form, setForm] = useState<ApplicationForm>({...INITIAL_FORM, name: userName});
-
-  const set = (key: keyof ApplicationForm, value: string | Level | null) =>
-    setForm(prev => ({...prev, [key]: value}));
-
-  const isBeginner = form.level === '왕초보';
-
-  const isValid =
-    form.level !== null &&
-    (isBeginner || (form.paceMin.trim() && form.paceSec.trim() && form.maxKm.trim()));
+  const [message, setMessage] = useState('');
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -210,177 +176,29 @@ function ApplicationModal({
             contentContainerStyle={{padding: 24, paddingBottom: 120}}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled">
-
-            {/* 성명 — 로그인 정보에서 자동 세팅, 읽기 전용 */}
-            <Field label="성명">
-              <View style={[readonlyStyle, {flexDirection: 'row', alignItems: 'center', gap: 8}]}>
-                <Text style={{flex: 1, fontSize: 14, color: '#374151'}}>{form.name}</Text>
-                <MaterialIcons name="lock-outline" size={14} color="#9ca3af" />
-              </View>
-            </Field>
-
-            {/* 생년월일 — 읽기 전용 (프로필 미지원) */}
-            <Field label="생년월일">
-              <View style={[readonlyStyle, {flexDirection: 'row', alignItems: 'center', gap: 8}]}>
-                <Text style={{flex: 1, fontSize: 14, color: '#9ca3af'}}>프로필에 등록된 정보가 없어요</Text>
-                <MaterialIcons name="lock-outline" size={14} color="#9ca3af" />
-              </View>
-            </Field>
-
-            {/* 나이 — 읽기 전용 (프로필 미지원) */}
-            <Field label="나이">
-              <View style={[readonlyStyle, {flexDirection: 'row', alignItems: 'center', gap: 8}]}>
-                <Text style={{flex: 1, fontSize: 14, color: '#9ca3af'}}>프로필에 등록된 정보가 없어요</Text>
-                <MaterialIcons name="lock-outline" size={14} color="#9ca3af" />
-              </View>
-            </Field>
-
-            {/* 레벨 */}
-            <Field label="레벨" required>
-              {/* 왕초보 단독 행 */}
-              {(() => {
-                const lv: Level = '왕초보';
-                const selected = form.level === lv;
-                return (
-                  <TouchableOpacity
-                    onPress={() => set('level', lv)}
-                    className="mb-2 flex-row items-center rounded-xl px-4 py-3"
-                    style={{
-                      borderWidth: 1.5,
-                      borderColor: selected ? '#f97316' : '#e5e7eb',
-                      backgroundColor: selected ? '#fff7ed' : '#f9fafb',
-                      gap: 10,
-                    }}>
-                    <View
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: 8,
-                        borderWidth: 2,
-                        borderColor: selected ? '#f97316' : '#d1d5db',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                      {selected && (
-                        <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#f97316'}} />
-                      )}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-sm font-bold" style={{color: selected ? '#ea580c' : '#6b7280'}}>
-                        왕초보
-                      </Text>
-                      <Text className="text-xs" style={{color: selected ? '#f97316' : '#9ca3af'}}>
-                        페이스·거리 입력 생략 가능
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })()}
-
-              {/* 하·중·상 가로 행 */}
-              <View className="flex-row" style={{gap: 8}}>
-                {(['하', '중', '상'] as Level[]).map(lv => {
-                  const selected = form.level === lv;
-                  return (
-                    <TouchableOpacity
-                      key={lv}
-                      onPress={() => set('level', lv)}
-                      className="flex-1 flex-row items-center justify-center rounded-xl py-3"
-                      style={{
-                        borderWidth: 1.5,
-                        borderColor: selected ? '#f97316' : '#e5e7eb',
-                        backgroundColor: selected ? '#fff7ed' : '#f9fafb',
-                        gap: 6,
-                      }}>
-                      <View
-                        style={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: 8,
-                          borderWidth: 2,
-                          borderColor: selected ? '#f97316' : '#d1d5db',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                        {selected && (
-                          <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#f97316'}} />
-                        )}
-                      </View>
-                      <Text className="text-sm font-bold" style={{color: selected ? '#ea580c' : '#6b7280'}}>
-                        {lv}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <Text className="mt-1.5 text-xs text-gray-400">
-                {isBeginner
-                  ? '아직 페이스나 거리를 잘 모르셔도 괜찮아요 😊'
-                  : '하: 7분 이상 · 중: 5~7분 · 상: 5분 이내'}
-              </Text>
-            </Field>
-
-            {/* 평균 페이스 · 최대 거리 — 왕초보 선택 시 접힘 */}
-            {!isBeginner && (
-              <>
-                <Field label="평균 페이스 (km당)" required>
-                  <View className="flex-row items-center" style={{gap: 8}}>
-                    <TextInput
-                      value={form.paceMin}
-                      onChangeText={v => set('paceMin', v.replace(/[^0-9]/g, ''))}
-                      placeholder="0"
-                      placeholderTextColor="#9ca3af"
-                      keyboardType="numeric"
-                      maxLength={2}
-                      style={[inputStyle, {flex: 1, textAlign: 'center'}]}
-                    />
-                    <Text className="text-sm font-semibold text-gray-500">분</Text>
-                    <TextInput
-                      value={form.paceSec}
-                      onChangeText={v => set('paceSec', v.replace(/[^0-9]/g, ''))}
-                      placeholder="00"
-                      placeholderTextColor="#9ca3af"
-                      keyboardType="numeric"
-                      maxLength={2}
-                      style={[inputStyle, {flex: 1, textAlign: 'center'}]}
-                    />
-                    <Text className="text-sm font-semibold text-gray-500">초</Text>
-                  </View>
-                </Field>
-
-                <Field label="최대 러닝 거리" required>
-                  <View className="flex-row items-center" style={{gap: 8}}>
-                    <TextInput
-                      value={form.maxKm}
-                      onChangeText={v => set('maxKm', v.replace(/[^0-9.]/g, ''))}
-                      placeholder="0"
-                      placeholderTextColor="#9ca3af"
-                      keyboardType="decimal-pad"
-                      maxLength={5}
-                      style={[inputStyle, {flex: 1}]}
-                    />
-                    <Text className="text-sm text-gray-500">km</Text>
-                  </View>
-                </Field>
-              </>
-            )}
-
-            {/* 소개말 */}
-            <Field label="소개말">
-              <TextInput
-                value={form.selfIntro}
-                onChangeText={v => set('selfIntro', v)}
-                placeholder="자신을 간단히 소개해 주세요 (선택)"
-                placeholderTextColor="#9ca3af"
-                multiline
-                textAlignVertical="top"
-                maxLength={200}
-                style={[inputStyle, {height: 96, paddingTop: 12}]}
-              />
-              <Text className="mt-1 text-right text-xs text-gray-300">
-                {form.selfIntro.length}/200
-              </Text>
-            </Field>
+            <Text className="mb-2 text-sm font-semibold text-gray-700">가입 메시지</Text>
+            <TextInput
+              value={message}
+              onChangeText={setMessage}
+              placeholder="자신을 간단히 소개해 주세요 (선택)"
+              placeholderTextColor="#9ca3af"
+              multiline
+              textAlignVertical="top"
+              maxLength={200}
+              style={{
+                borderWidth: 1,
+                borderColor: '#e5e7eb',
+                borderRadius: 12,
+                backgroundColor: '#f9fafb',
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                fontSize: 14,
+                color: '#111827',
+                height: 120,
+                paddingTop: 12,
+              }}
+            />
+            <Text className="mt-1 text-right text-xs text-gray-300">{message.length}/200</Text>
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -389,9 +207,8 @@ function ApplicationModal({
           className="absolute bottom-0 left-0 right-0 bg-white px-4 pb-6 pt-3"
           style={{borderTopWidth: 1, borderTopColor: '#f3f4f6'}}>
           <TouchableOpacity
-            onPress={isValid ? onSubmit : undefined}
-            className="items-center rounded-2xl py-4"
-            style={{backgroundColor: isValid ? '#f97316' : '#fed7aa'}}>
+            onPress={() => onSubmit(message)}
+            className="items-center rounded-2xl bg-orange-500 py-4">
             <Text className="text-base font-bold text-white">신청</Text>
           </TouchableOpacity>
         </View>
@@ -399,47 +216,6 @@ function ApplicationModal({
     </Modal>
   );
 }
-
-// 폼 필드 래퍼
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <View className="mb-5">
-      <View className="mb-2 flex-row items-center" style={{gap: 3}}>
-        <Text className="text-sm font-semibold text-gray-700">{label}</Text>
-        {required && <Text className="text-sm font-bold text-orange-500">*</Text>}
-      </View>
-      {children}
-    </View>
-  );
-}
-
-const inputStyle = {
-  borderWidth: 1,
-  borderColor: '#e5e7eb',
-  borderRadius: 12,
-  backgroundColor: '#f9fafb',
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  fontSize: 14,
-  color: '#111827',
-};
-
-const readonlyStyle = {
-  borderWidth: 1,
-  borderColor: '#f3f4f6',
-  borderRadius: 12,
-  backgroundColor: '#f3f4f6',
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-};
 
 // ─── 메인 화면 ────────────────────────────────────────────
 export default function GroupListScreen() {
@@ -492,10 +268,10 @@ export default function GroupListScreen() {
     setApplyTarget(group);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (message: string) => {
     if (!applyTarget) return;
     try {
-      await applyGroup(applyTarget.id);
+      await applyGroup(applyTarget.id, message.trim() || undefined);
     } catch {
       // 에러는 context에서 롤백 처리
     }
@@ -653,7 +429,7 @@ export default function GroupListScreen() {
                       <MaterialIcons name="person" size={12} color="#9ca3af" />
                       <Text className="text-xs text-gray-400">
                         {item.memberCount}
-                        <Text className="text-gray-300"> / {item.maxMembers}명</Text>
+                        <Text className="text-gray-300"> / {item.maxMembers >= 999999 ? '무제한' : `${item.maxMembers}명`}</Text>
                       </Text>
                     </View>
                   </View>
@@ -696,7 +472,6 @@ export default function GroupListScreen() {
       {applyTarget && (
         <ApplicationModal
           groupName={applyTarget.name}
-          userName={user?.name ?? ''}
           onClose={() => setApplyTarget(null)}
           onSubmit={handleSubmit}
         />

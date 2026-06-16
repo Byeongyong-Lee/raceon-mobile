@@ -47,7 +47,7 @@ type GroupContextType = {
   groupsLoading: boolean;
   myGroups: Group[];          // 내 모임 (API)
   myGroupsLoading: boolean;
-  applyGroup: (id: string) => Promise<void>;
+  applyGroup: (id: string, message?: string) => Promise<void>;
   createGroup: (params: CreateGroupParams) => Promise<void>;
   updateGroup: (params: UpdateGroupParams) => Promise<void>;
   leaveGroup: (groupIdx: number) => Promise<void>;
@@ -96,112 +96,6 @@ function mapGroupResponse(r: GroupResponse, status: GroupStatus = 'none'): Group
     imageUri: r.profileImage ? `${BASE_URL}${r.profileImage}` : undefined,
   };
 }
-
-// ── 모임 목록 탭용 Mock 데이터 ────────────────────────────
-const INITIAL_GROUPS: Group[] = [
-  {
-    id: '1',
-    name: '한강 러닝 크루',
-    description: '매주 일요일 한강에서 함께 달려요. 초보 환영!',
-    intro:
-      '한강 러닝 크루는 2023년부터 매주 일요일 오전 7시, 뚝섬한강공원에서 함께 달리는 모임이에요.\n\n초보부터 중급까지 누구나 환영하며, 5km·10km 코스를 자유롭게 선택할 수 있어요. 달리기 후에는 간단한 스트레칭과 함께 모임원들과 이야기를 나눠요.\n\n가입 후 운영진 승인을 거쳐 정식 멤버가 됩니다.',
-    memberCount: 87,
-    maxMembers: 1000,
-    maxOperators: 200,
-    tags: ['초보환영', '한강', '주말'],
-    color: '#f97316',
-    status: 'none',
-    isLeader: false,
-    role: null,
-    lastActivity: '방금 전',
-    region: '서울',
-  },
-  {
-    id: '2',
-    name: '마라톤 입문자 모임',
-    description: '처음 마라톤에 도전하는 분들을 위한 모임이에요.',
-    intro:
-      '마라톤 풀코스 또는 하프를 처음 준비하는 분들을 위한 모임입니다.\n\n매주 토요일 오전, 한강 또는 올림픽공원에서 모여 계획적인 훈련을 진행해요. 전문 코치가 페이스 배분과 영양 섭취 방법을 안내해 드립니다.\n\n꾸준한 참여가 어려우신 분은 신청을 자제해 주세요.',
-    memberCount: 45,
-    maxMembers: 100,
-    maxOperators: 10,
-    tags: ['입문', '마라톤', '훈련'],
-    color: '#3b82f6',
-    status: 'none',
-    isLeader: false,
-    role: null,
-    lastActivity: '1시간 전',
-    region: '서울',
-  },
-  {
-    id: '3',
-    name: '서울 새벽 러닝',
-    description: '이른 아침의 고요함을 즐기며 달리는 모임입니다.',
-    intro:
-      '평일 오전 6시, 서울 도심 곳곳을 달리는 새벽 러닝 모임이에요.\n\n매일 코스가 바뀌며 경복궁·남산·청계천 등 다양한 코스를 경험할 수 있어요. 출석 기록을 앱에 남기고, 한 달 개근 시 소정의 기념품을 드려요.\n\n새벽형 인간을 지향하는 분께 추천합니다!',
-    memberCount: 132,
-    maxMembers: 1000,
-    maxOperators: 200,
-    tags: ['새벽', '서울', '5km'],
-    color: '#8b5cf6',
-    status: 'none',
-    isLeader: false,
-    role: null,
-    lastActivity: '30분 전',
-    region: '서울',
-  },
-  {
-    id: '4',
-    name: '풀코스 도전단',
-    description: '42.195km 완주를 목표로 함께 훈련해요.',
-    intro:
-      '풀코스 마라톤 완주를 목표로 체계적인 훈련을 이어가는 모임입니다.\n\n주 3회 이상 훈련이 기본이며, 서브4·서브3.5 등 목표 기록에 맞춰 그룹을 나눠 운영해요. 고강도 훈련이 포함되므로 하프마라톤 완주 경험자를 우대합니다.',
-    memberCount: 23,
-    maxMembers: 50,
-    maxOperators: 5,
-    tags: ['풀코스', '고강도', '훈련'],
-    color: '#10b981',
-    status: 'none',
-    isLeader: false,
-    role: null,
-    lastActivity: '2시간 전',
-    region: '경기',
-  },
-  {
-    id: '5',
-    name: '강남 런치런',
-    description: '점심시간 30분, 짧고 굵게 달립니다.',
-    intro:
-      '강남 일대 직장인들을 위한 점심 러닝 모임입니다.\n\n매일 낮 12시 15분 강남역 11번 출구 앞에서 모여 약 4km를 달리고 복귀해요. 샤워 시설 정보도 공유해 드려요.\n\n편하게 참여하고 싶은 날만 나와도 됩니다.',
-    memberCount: 61,
-    maxMembers: 150,
-    maxOperators: 15,
-    tags: ['강남', '점심', '직장인'],
-    color: '#ef4444',
-    status: 'none',
-    isLeader: false,
-    role: null,
-    lastActivity: '3시간 전',
-    region: '서울',
-  },
-  {
-    id: '6',
-    name: '부산 해운대 러너스',
-    description: '해운대 해변을 따라 달리는 부산 러닝 모임.',
-    intro:
-      '부산 해운대 해변과 마린시티 코스를 달리는 러닝 모임이에요.\n\n매주 토·일 오전 7시, 해운대 해수욕장 앞에서 출발합니다. 바다를 보며 달리는 특별한 경험을 해보세요!\n\n부산 거주자 우선 모집하며, 원정 참가도 환영해요.',
-    memberCount: 38,
-    maxMembers: 100,
-    maxOperators: 10,
-    tags: ['부산', '해변', '주말'],
-    color: '#f59e0b',
-    status: 'none',
-    isLeader: false,
-    role: null,
-    lastActivity: '어제',
-    region: '부산',
-  },
-];
 
 // ── Provider ──────────────────────────────────────────────
 export function GroupProvider({children}: {children: React.ReactNode}) {
@@ -279,7 +173,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
   }, [user]);
 
   // ── 가입 신청 ───────────────────────────────────────────
-  const applyGroup = async (id: string) => {
+  const applyGroup = async (id: string, message?: string) => {
     const target = groups.find(g => g.id === id);
 
     // 낙관적 업데이트
@@ -295,10 +189,10 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     }
 
     const groupIdx = target?.groupIdx;
-    if (!groupIdx) return; // mock 데이터면 API 스킵
+    if (!groupIdx) return;
 
     try {
-      await applyGroupApi(groupIdx);
+      await applyGroupApi(groupIdx, message);
     } catch (e) {
       // 실패 시 롤백
       pendingIdsRef.current = pendingIdsRef.current.filter(pid => pid !== id);
