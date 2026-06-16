@@ -68,6 +68,27 @@ export type ApplicationItem = {
   createDt: string;
 };
 
+export type BoardPost = {
+  boardIdx: number;
+  groupIdx: number;
+  authorIdx: number;
+  title: string;
+  content: string;
+  isNotice: 'Y' | 'N';
+  createDt: string;
+  updateDt: string;
+};
+
+export type BoardComment = {
+  commentIdx: number;
+  boardIdx: number;
+  authorIdx: number;
+  content: string;
+  delAt: 'Y' | 'N';
+  createDt: string;
+  updateDt: string;
+};
+
 export type Area = {
   areaIdx: number;
   areaCode: string;  // 시도 2자리 / 시군구 5자리 / 읍면동 8자리

@@ -1,7 +1,7 @@
 import Config from 'react-native-config';
 import {apiFetch} from './apiClient';
 import {tokenStorage} from './tokenStorage';
-import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole} from '../types';
+import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole, BoardPost, BoardComment} from '../types';
 
 const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
@@ -196,6 +196,101 @@ export async function deleteGroupApi(groupIdx: number): Promise<void> {
 export async function leaveGroupApi(groupIdx: number): Promise<void> {
   const json = await apiFetch<ApiResult<null>>(
     `/api/groups/${groupIdx}/members/me`,
+    {method: 'DELETE'},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+// ── 게시판 ────────────────────────────────────────────────
+type SpringPage<T> = {content: T[]; last: boolean; totalElements: number; number: number};
+
+export async function fetchBoardPosts(
+  groupIdx: number,
+  page = 0,
+): Promise<{posts: BoardPost[]; last: boolean}> {
+  const json = await apiFetch<ApiResult<SpringPage<BoardPost>>>(
+    `/api/groups/${groupIdx}/boards?page=${page}&size=20`,
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return {posts: json.data.content, last: json.data.last};
+}
+
+export async function createBoardPost(
+  groupIdx: number,
+  title: string,
+  content: string,
+): Promise<BoardPost> {
+  const json = await apiFetch<ApiResult<BoardPost>>(`/api/groups/${groupIdx}/boards`, {
+    method: 'POST',
+    body: JSON.stringify({title, content}),
+  });
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data;
+}
+
+export async function updateBoardPost(
+  groupIdx: number,
+  boardIdx: number,
+  title: string,
+  content: string,
+): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(`/api/groups/${groupIdx}/boards/${boardIdx}`, {
+    method: 'PATCH',
+    body: JSON.stringify({title, content}),
+  });
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+export async function deleteBoardPost(groupIdx: number, boardIdx: number): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(`/api/groups/${groupIdx}/boards/${boardIdx}`, {
+    method: 'DELETE',
+  });
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+export async function toggleBoardNotice(
+  groupIdx: number,
+  boardIdx: number,
+  isNotice: 'Y' | 'N',
+): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/boards/${boardIdx}/notice`,
+    {method: 'PATCH', body: JSON.stringify({isNotice})},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+export async function fetchBoardComments(
+  groupIdx: number,
+  boardIdx: number,
+): Promise<BoardComment[]> {
+  const json = await apiFetch<ApiResult<BoardComment[]>>(
+    `/api/groups/${groupIdx}/boards/${boardIdx}/comments`,
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data ?? [];
+}
+
+export async function createBoardComment(
+  groupIdx: number,
+  boardIdx: number,
+  content: string,
+): Promise<BoardComment> {
+  const json = await apiFetch<ApiResult<BoardComment>>(
+    `/api/groups/${groupIdx}/boards/${boardIdx}/comments`,
+    {method: 'POST', body: JSON.stringify({content})},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data;
+}
+
+export async function deleteBoardComment(
+  groupIdx: number,
+  boardIdx: number,
+  commentIdx: number,
+): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/boards/${boardIdx}/comments/${commentIdx}`,
     {method: 'DELETE'},
   );
   if (!json.success) throw new Error(json.message ?? '서버 오류');

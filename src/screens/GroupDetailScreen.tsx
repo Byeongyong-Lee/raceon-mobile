@@ -27,20 +27,18 @@ import {
   rejectApplication,
   kickMember,
   changeMemberRole,
+  fetchBoardPosts,
+  createBoardPost,
+  updateBoardPost,
+  deleteBoardPost,
+  toggleBoardNotice,
+  fetchBoardComments,
+  createBoardComment,
+  deleteBoardComment,
 } from '../services/groupApi';
-import {GroupMemberItem, ApplicationItem, GroupRole} from '../types';
+import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment} from '../types';
 
 type TabType = '게시판' | '채팅' | '모임';
-
-type Post = {
-  id: string;
-  title: string;
-  author: string;
-  date: string;
-  likeCount: number;
-  commentCount: number;
-  preview: string;
-};
 
 type Message = {
   id: string;
@@ -69,36 +67,6 @@ type GroupMeeting = {
   isAttending: boolean;
   connectedRace?: ConnectedRace;
 };
-
-const MOCK_POSTS: Post[] = [
-  {
-    id: '1',
-    title: '이번 주 일요일 한강 달리기 같이 해요!',
-    author: '김러너',
-    date: '2026-06-11',
-    likeCount: 12,
-    commentCount: 5,
-    preview: '오전 7시 뚝섬역 1번 출구에서 모입니다. 5km 코스 예정이에요.',
-  },
-  {
-    id: '2',
-    title: '서울마라톤 후기 공유해요',
-    author: '이달리기',
-    date: '2026-06-10',
-    likeCount: 8,
-    commentCount: 3,
-    preview: '처음 풀코스 완주했습니다! 4시간 30분으로 마쳤어요.',
-  },
-  {
-    id: '3',
-    title: '러닝화 추천 부탁드려요',
-    author: '박마라톤',
-    date: '2026-06-09',
-    likeCount: 4,
-    commentCount: 7,
-    preview: '발볼이 넓은 편인데 장거리에 맞는 러닝화 추천해 주세요.',
-  },
-];
 
 const MOCK_MESSAGES: Message[] = [
   {
@@ -174,89 +142,455 @@ const MOCK_MEETINGS: GroupMeeting[] = [
 ];
 
 // ─────────────────────────────────────────
+// 게시글 상세 + 댓글
+// ─────────────────────────────────────────
+function PostDetailView({
+  groupIdx,
+  post,
+  myUserIdx,
+  role,
+  onBack,
+  onEdit,
+  onDelete,
+  onToggleNotice,
+}: {
+  groupIdx: number;
+  post: BoardPost;
+  myUserIdx: number;
+  role: GroupRole | null;
+  onBack: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleNotice: () => void;
+}) {
+  const [comments, setComments] = useState<BoardComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentInput, setCommentInput] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const isAuthor = post.authorIdx === myUserIdx;
+  const canManage = role === 'OWNER' || role === 'MANAGER';
+
+  React.useEffect(() => {
+    fetchBoardComments(groupIdx, post.boardIdx)
+      .then(setComments)
+      .catch(() => {})
+      .finally(() => setCommentsLoading(false));
+  }, [post.boardIdx]);
+
+  const handleSubmitComment = async () => {
+    if (!commentInput.trim() || submittingComment) return;
+    setSubmittingComment(true);
+    try {
+      const created = await createBoardComment(groupIdx, post.boardIdx, commentInput.trim());
+      setComments(prev => [...prev, created]);
+      setCommentInput('');
+    } catch (e: any) {
+      Alert.alert('오류', e.message);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = (comment: BoardComment) => {
+    Alert.alert('댓글 삭제', '이 댓글을 삭제하시겠어요?', [
+      {text: '취소', style: 'cancel'},
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteBoardComment(groupIdx, post.boardIdx, comment.commentIdx);
+            setComments(prev => prev.filter(c => c.commentIdx !== comment.commentIdx));
+          } catch (e: any) {
+            Alert.alert('오류', e.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const showPostMenu = () => {
+    const options: Array<{text: string; onPress?: () => void; style?: 'cancel' | 'destructive' | 'default'}> = [];
+    if (isAuthor) options.push({text: '수정', onPress: onEdit});
+    if (canManage) options.push({
+      text: post.isNotice === 'Y' ? '공지 해제' : '공지 설정',
+      onPress: onToggleNotice,
+    });
+    if (isAuthor || canManage) options.push({text: '삭제', style: 'destructive', onPress: onDelete});
+    options.push({text: '취소', style: 'cancel'});
+    Alert.alert('게시글 관리', undefined, options);
+  };
+
+  return (
+    <View className="flex-1 bg-gray-50">
+      {/* 헤더 */}
+      <View
+        className="flex-row items-center bg-white px-4 py-3"
+        style={{borderBottomWidth: 1, borderBottomColor: '#f3f4f6'}}>
+        <TouchableOpacity onPress={onBack} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          <MaterialIcons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text className="ml-3 flex-1 text-base font-bold text-gray-900">게시판</Text>
+        {(isAuthor || canManage) && (
+          <TouchableOpacity
+            onPress={showPostMenu}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+            <MaterialIcons name="more-vert" size={24} color="#6b7280" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1">
+        <ScrollView contentContainerStyle={{paddingBottom: 16}} showsVerticalScrollIndicator={false}>
+          {/* 게시글 본문 */}
+          <View
+            className="bg-white px-4 py-5"
+            style={{borderBottomWidth: 1, borderBottomColor: '#f3f4f6'}}>
+            {post.isNotice === 'Y' && (
+              <View className="mb-2 self-start rounded-full bg-orange-100 px-2 py-0.5">
+                <Text className="text-xs font-bold text-orange-600">공지</Text>
+              </View>
+            )}
+            <Text className="text-lg font-bold text-gray-900">{post.title}</Text>
+            <View className="mt-2 flex-row items-center" style={{gap: 8}}>
+              <Text className="text-xs text-gray-400">
+                {post.authorIdx === myUserIdx ? '나' : `멤버 #${post.authorIdx}`}
+              </Text>
+              <Text className="text-xs text-gray-300">·</Text>
+              <Text className="text-xs text-gray-400">{post.createDt?.slice(0, 10)}</Text>
+            </View>
+            <View className="mt-4 border-t border-gray-50 pt-4">
+              <Text className="text-sm leading-6 text-gray-700">{post.content}</Text>
+            </View>
+          </View>
+
+          {/* 댓글 */}
+          <View className="px-4 pt-4">
+            <Text className="mb-3 text-sm font-bold text-gray-700">댓글 {comments.length}개</Text>
+            {commentsLoading ? (
+              <ActivityIndicator color="#f97316" />
+            ) : comments.length === 0 ? (
+              <Text className="text-xs text-gray-400">첫 번째 댓글을 남겨보세요!</Text>
+            ) : (
+              comments.map(comment => (
+                <View
+                  key={comment.commentIdx}
+                  className="mb-3 rounded-2xl bg-white px-4 py-3"
+                  style={{
+                    elevation: 1,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.04,
+                    shadowRadius: 4,
+                    shadowOffset: {width: 0, height: 1},
+                  }}>
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center" style={{gap: 8}}>
+                      <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-100">
+                        <MaterialIcons name="person" size={16} color="#9ca3af" />
+                      </View>
+                      <View>
+                        <Text className="text-xs font-semibold text-gray-700">
+                          {comment.authorIdx === myUserIdx ? '나' : `멤버 #${comment.authorIdx}`}
+                        </Text>
+                        <Text className="text-xs text-gray-400">
+                          {comment.createDt?.slice(0, 10)}
+                        </Text>
+                      </View>
+                    </View>
+                    {(comment.authorIdx === myUserIdx || canManage) && (
+                      <TouchableOpacity
+                        onPress={() => handleDeleteComment(comment)}
+                        hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                        <MaterialIcons name="close" size={16} color="#9ca3af" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text className="mt-2 text-sm leading-5 text-gray-700">{comment.content}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+
+        {/* 댓글 입력 */}
+        <View
+          className="flex-row items-center border-t border-gray-100 bg-white px-3 py-2"
+          style={{gap: 8}}>
+          <TextInput
+            value={commentInput}
+            onChangeText={setCommentInput}
+            placeholder="댓글을 입력하세요"
+            placeholderTextColor="#9ca3af"
+            className="flex-1 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-900"
+            returnKeyType="send"
+            onSubmitEditing={handleSubmitComment}
+            maxLength={500}
+          />
+          <TouchableOpacity
+            onPress={handleSubmitComment}
+            disabled={submittingComment}
+            className="h-9 w-9 items-center justify-center rounded-full bg-orange-500">
+            {submittingComment ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <MaterialIcons name="send" size={18} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────
 // 게시판 탭
 // ─────────────────────────────────────────
-function BoardTab() {
+function BoardTab({
+  groupIdx,
+  myUserIdx,
+  role,
+}: {
+  groupIdx: number;
+  myUserIdx: number;
+  role: GroupRole | null;
+}) {
+  const [posts, setPosts] = useState<BoardPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [isLast, setIsLast] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<BoardPost | null>(null);
   const [showWriteModal, setShowWriteModal] = useState(false);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [editingPost, setEditingPost] = useState<BoardPost | null>(null);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalContent, setModalContent] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadPosts = async (pageNum: number) => {
+    try {
+      const {posts: newPosts, last} = await fetchBoardPosts(groupIdx, pageNum);
+      setPosts(prev => (pageNum === 0 ? newPosts : [...prev, ...newPosts]));
+      setIsLast(last);
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '게시글을 불러오지 못했어요.');
+    }
+  };
+
+  React.useEffect(() => {
+    loadPosts(0).finally(() => setLoading(false));
+  }, []);
+
+  const loadMore = async () => {
+    if (isLast || loadingMore) return;
+    setLoadingMore(true);
+    const next = page + 1;
+    await loadPosts(next);
+    setPage(next);
+    setLoadingMore(false);
+  };
+
+  const openWrite = () => {
+    setEditingPost(null);
+    setModalTitle('');
+    setModalContent('');
+    setShowWriteModal(true);
+  };
+
+  const openEdit = (post: BoardPost) => {
+    setEditingPost(post);
+    setModalTitle(post.title);
+    setModalContent(post.content);
+    setShowWriteModal(true);
+  };
+
+  const handleSubmitPost = async () => {
+    if (!modalTitle.trim() || !modalContent.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      if (editingPost) {
+        await updateBoardPost(groupIdx, editingPost.boardIdx, modalTitle.trim(), modalContent.trim());
+        const updated = {...editingPost, title: modalTitle.trim(), content: modalContent.trim()};
+        setPosts(prev => prev.map(p => (p.boardIdx === editingPost.boardIdx ? updated : p)));
+        if (selectedPost?.boardIdx === editingPost.boardIdx) setSelectedPost(updated);
+      } else {
+        const created = await createBoardPost(groupIdx, modalTitle.trim(), modalContent.trim());
+        setPosts(prev => [created, ...prev]);
+      }
+      setShowWriteModal(false);
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '실패했어요.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeletePost = (post: BoardPost) => {
+    Alert.alert('게시글 삭제', '이 게시글을 삭제하시겠어요?', [
+      {text: '취소', style: 'cancel'},
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteBoardPost(groupIdx, post.boardIdx);
+            setPosts(prev => prev.filter(p => p.boardIdx !== post.boardIdx));
+            if (selectedPost?.boardIdx === post.boardIdx) setSelectedPost(null);
+          } catch (e: any) {
+            Alert.alert('오류', e.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleToggleNotice = async (post: BoardPost) => {
+    const next: 'Y' | 'N' = post.isNotice === 'Y' ? 'N' : 'Y';
+    try {
+      await toggleBoardNotice(groupIdx, post.boardIdx, next);
+      const updated = {...post, isNotice: next};
+      setPosts(prev => prev.map(p => (p.boardIdx === post.boardIdx ? updated : p)));
+      if (selectedPost?.boardIdx === post.boardIdx) setSelectedPost(updated);
+    } catch (e: any) {
+      Alert.alert('오류', e.message);
+    }
+  };
+
+  const notices = posts.filter(p => p.isNotice === 'Y');
+  const regular = posts.filter(p => p.isNotice !== 'Y');
+  const displayPosts = [...notices, ...regular];
 
   return (
     <View className="flex-1">
-      <FlatList
-        data={MOCK_POSTS}
-        keyExtractor={item => item.id}
-        contentContainerStyle={{padding: 16, paddingBottom: 80}}
-        showsVerticalScrollIndicator={false}
-        renderItem={({item}) => (
-          <TouchableOpacity
-            activeOpacity={0.75}
-            className="mb-3 rounded-2xl bg-white px-4 py-4"
-            style={{
-              elevation: 1,
-              shadowColor: '#000',
-              shadowOpacity: 0.05,
-              shadowRadius: 6,
-              shadowOffset: {width: 0, height: 1},
-            }}>
-            <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text className="mt-1 text-xs text-gray-400" numberOfLines={2}>
-              {item.preview}
-            </Text>
-            <View className="mt-2 flex-row items-center justify-between">
-              <Text className="text-xs text-gray-400">
-                {item.author} · {item.date}
-              </Text>
-              <View className="flex-row items-center" style={{gap: 10}}>
-                <View className="flex-row items-center" style={{gap: 2}}>
-                  <MaterialIcons name="favorite-border" size={13} color="#9ca3af" />
-                  <Text className="text-xs text-gray-400">{item.likeCount}</Text>
-                </View>
-                <View className="flex-row items-center" style={{gap: 2}}>
-                  <MaterialIcons name="chat-bubble-outline" size={13} color="#9ca3af" />
-                  <Text className="text-xs text-gray-400">{item.commentCount}</Text>
-                </View>
+      {selectedPost ? (
+        <PostDetailView
+          groupIdx={groupIdx}
+          post={selectedPost}
+          myUserIdx={myUserIdx}
+          role={role}
+          onBack={() => setSelectedPost(null)}
+          onEdit={() => openEdit(selectedPost)}
+          onDelete={() => handleDeletePost(selectedPost)}
+          onToggleNotice={() => handleToggleNotice(selectedPost)}
+        />
+      ) : loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      ) : (
+        <>
+          <FlatList
+            data={displayPosts}
+            keyExtractor={item => String(item.boardIdx)}
+            contentContainerStyle={{padding: 16, paddingBottom: 80}}
+            showsVerticalScrollIndicator={false}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator color="#f97316" style={{marginVertical: 16}} />
+              ) : null
+            }
+            ListEmptyComponent={
+              <View className="mt-20 items-center">
+                <MaterialIcons name="article" size={52} color="#d1d5db" />
+                <Text className="mt-3 text-sm font-semibold text-gray-400">
+                  아직 게시글이 없어요
+                </Text>
+                <Text className="mt-1 text-xs text-gray-400">첫 번째 게시글을 작성해보세요!</Text>
               </View>
-            </View>
+            }
+            renderItem={({item}) => (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => setSelectedPost(item)}
+                className="mb-3 rounded-2xl bg-white px-4 py-4"
+                style={{
+                  elevation: 1,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.05,
+                  shadowRadius: 6,
+                  shadowOffset: {width: 0, height: 1},
+                }}>
+                <View className="flex-row items-center" style={{gap: 6}}>
+                  {item.isNotice === 'Y' && (
+                    <View className="rounded-full bg-orange-100 px-2 py-0.5">
+                      <Text className="text-xs font-bold text-orange-600">공지</Text>
+                    </View>
+                  )}
+                  <Text
+                    className="flex-1 text-sm font-bold text-gray-900"
+                    numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                </View>
+                <Text className="mt-1 text-xs text-gray-400" numberOfLines={2}>
+                  {item.content}
+                </Text>
+                <View className="mt-2 flex-row items-center justify-between">
+                  <Text className="text-xs text-gray-400">{item.createDt?.slice(0, 10)}</Text>
+                  <Text className="text-xs text-gray-400">
+                    {item.authorIdx === myUserIdx ? '나' : `멤버 #${item.authorIdx}`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+          <TouchableOpacity
+            onPress={openWrite}
+            className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-orange-500"
+            style={{
+              elevation: 4,
+              shadowColor: '#f97316',
+              shadowOpacity: 0.4,
+              shadowRadius: 8,
+              shadowOffset: {width: 0, height: 4},
+            }}>
+            <MaterialIcons name="edit" size={24} color="#fff" />
           </TouchableOpacity>
-        )}
-      />
+        </>
+      )}
 
-      {/* 글쓰기 버튼 */}
-      <TouchableOpacity
-        onPress={() => setShowWriteModal(true)}
-        className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-orange-500"
-        style={{elevation: 4, shadowColor: '#f97316', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: {width: 0, height: 4}}}>
-        <MaterialIcons name="edit" size={24} color="#fff" />
-      </TouchableOpacity>
-
-      {/* 글쓰기 모달 */}
+      {/* 글쓰기/수정 모달 */}
       <Modal visible={showWriteModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
           <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
             <TouchableOpacity onPress={() => setShowWriteModal(false)}>
               <Text className="text-base text-gray-500">취소</Text>
             </TouchableOpacity>
-            <Text className="text-base font-bold text-gray-900">새 글 작성</Text>
-            <TouchableOpacity onPress={() => setShowWriteModal(false)}>
-              <Text className="text-base font-bold text-orange-500">등록</Text>
+            <Text className="text-base font-bold text-gray-900">
+              {editingPost ? '게시글 수정' : '새 글 작성'}
+            </Text>
+            <TouchableOpacity onPress={handleSubmitPost} disabled={submitting}>
+              {submitting ? (
+                <ActivityIndicator size="small" color="#f97316" />
+              ) : (
+                <Text
+                  className="text-base font-bold"
+                  style={{
+                    color: modalTitle.trim() && modalContent.trim() ? '#f97316' : '#fed7aa',
+                  }}>
+                  {editingPost ? '수정' : '등록'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             className="flex-1">
             <TextInput
-              value={title}
-              onChangeText={setTitle}
+              value={modalTitle}
+              onChangeText={setModalTitle}
               placeholder="제목을 입력하세요"
               placeholderTextColor="#9ca3af"
               className="border-b border-gray-100 px-4 py-4 text-base font-semibold text-gray-900"
+              maxLength={100}
             />
             <TextInput
-              value={content}
-              onChangeText={setContent}
+              value={modalContent}
+              onChangeText={setModalContent}
               placeholder="내용을 입력하세요"
               placeholderTextColor="#9ca3af"
               multiline
@@ -1673,7 +2007,9 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       </View>
 
       {/* 탭 콘텐츠 */}
-      {activeTab === '게시판' && <BoardTab />}
+      {activeTab === '게시판' && (
+        <BoardTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} role={role} />
+      )}
       {activeTab === '채팅' && <ChatTab />}
       {activeTab === '모임' && <MeetingTab isLeader={isLeader} />}
     </SafeAreaView>
