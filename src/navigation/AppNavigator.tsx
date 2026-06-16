@@ -3,6 +3,7 @@ import React from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import CommunityScreen from '../screens/CommunityScreen';
+import GroupListScreen from '../screens/GroupListScreen';
 import MyRacesScreen from '../screens/MyRacesScreen';
 import RaceListScreen from '../screens/RaceListScreen';
 
@@ -33,6 +34,16 @@ export default function AppNavigator() {
           tabBarLabel: '홈',
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="GroupList"
+        component={GroupListScreen}
+        options={{
+          tabBarLabel: '모임 목록',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="groups" size={size} color={color} />
           ),
         }}
       />

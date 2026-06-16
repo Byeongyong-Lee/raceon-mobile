@@ -40,12 +40,16 @@ raceon-mobile/
 │   │   ├── RaceCard.tsx             # 대회 카드
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
 │   ├── context/
+│   │   ├── AreaContext.tsx           # 행정구역 전역 상태 (앱 시작 시 level=1 시도 목록 fetch)
+│   │   ├── GroupContext.tsx          # 모임 전역 상태 (groups: mock 탐색용 / myGroups: API 연동)
 │   │   └── UserContext.tsx          # 유저·토큰·내 대회 전역 상태 관리
 │   ├── hooks/
 │   │   └── useLogin.ts              # 소셜 로그인 공통 훅 (소셜 SDK → 서버 API → 토큰 저장)
 │   ├── services/
 │   │   ├── apiClient.ts             # Bearer 토큰 자동 첨부 fetch 래퍼
+│   │   ├── areasApi.ts              # GET /api/areas — 행정구역 조회 (인증 불필요)
 │   │   ├── authApi.ts               # POST /api/auth/{provider} — JWT 발급
+│   │   ├── groupApi.ts              # GET /api/groups/me · POST /api/groups · POST /api/groups/{idx}/applications
 │   │   ├── tokenStorage.ts          # AsyncStorage 기반 JWT 저장/조회/삭제
 │   │   └── userRaceApi.ts           # GET·POST·DELETE /api/user-races — 내 대회 서버 연동
 │   ├── navigation/
@@ -55,9 +59,12 @@ raceon-mobile/
 │   │   ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
 │   │   ├── RaceDetailScreen.tsx     # 대회 상세 (정보·지도·내 대회 추가)
 │   │   ├── CommunityScreen.tsx      # 내 모임 화면 (모임 목록·만들기·코드 참가)
-│   │   ├── GroupDetailScreen.tsx    # 모임 상세 (게시판·채팅·실시간 위치 탭)
+│   │   ├── GroupDetailScreen.tsx    # 모임 상세 (게시판·채팅·모임 탭)
+│   │   ├── GroupListScreen.tsx      # 모임 목록 화면 (전체 모임 탐색·검색·참가)
 │   │   ├── MyRacesScreen.tsx        # 내 대회 화면
 │   │   └── SettingsScreen.tsx       # 설정 화면
+│   ├── constants/
+│   │   └── regions.ts               # 시도 지역 코드 (label·fullName·areaCode) 및 유틸 함수
 │   ├── types/
 │   │   └── index.ts                 # 공유 타입 (Race, UserRace, SocialProvider)
 │   └── utils/
@@ -114,6 +121,7 @@ npm run test
 | 화면 | 파일 경로 | 설명 | 추가일 |
 |------|-----------|------|--------|
 | 홈 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 + D-day | 2026-06-06 |
+| 모임 목록 | `src/screens/GroupListScreen.tsx` | 전체 모임 탐색·검색·코드 참가 | 2026-06-15 |
 | 내 모임 | `src/screens/CommunityScreen.tsx` | 모임 목록·만들기·코드 참가 | 2026-06-12 |
 | 모임 상세 | `src/screens/GroupDetailScreen.tsx` | 게시판·채팅·실시간 위치 탭 | 2026-06-12 |
 | 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 | 2026-06-06 |
@@ -125,6 +133,7 @@ npm run test
 RootNavigator (Stack)
 - MainTabs (AppNavigator) → Bottom Tab
   - 홈 (home) → RaceListScreen
+  - 모임 목록 (groups) → GroupListScreen
   - 내 모임 (forum) → CommunityScreen → GroupDetailScreen (인라인 전환)
   - 내 대회 (emoji-events) → MyRacesScreen
 - Settings → SettingsScreen (프로필 이미지 클릭 시 이동)

@@ -1,7 +1,13 @@
 import React, {useState} from 'react';
 import {
+  Alert,
+  ActivityIndicator,
   FlatList,
+  Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -9,90 +15,108 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import {launchImageLibrary} from 'react-native-image-picker';
+import {useGroups} from '../context/GroupContext';
+import {useAreas} from '../context/AreaContext';
+import {toShortLabel} from '../constants/regions';
 import GroupDetailScreen from './GroupDetailScreen';
 
-type Group = {
-  id: string;
-  name: string;
-  description: string;
-  memberCount: number;
-  isLeader: boolean;
-  lastActivity: string;
-  color: string;
-};
-
-const MOCK_GROUPS: Group[] = [
-  {
-    id: '1',
-    name: '한강 러닝 크루',
-    description: '매주 일요일 한강에서 함께 달려요',
-    memberCount: 12,
-    isLeader: true,
-    lastActivity: '방금 전',
-    color: '#f97316',
-  },
-  {
-    id: '2',
-    name: '마라톤 입문자 모임',
-    description: '처음 마라톤에 도전하는 분들 환영해요',
-    memberCount: 8,
-    isLeader: false,
-    lastActivity: '1시간 전',
-    color: '#3b82f6',
-  },
-];
-
-const GROUP_COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#f59e0b'];
-
 export default function CommunityScreen() {
-  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const {myGroups, myGroupsLoading, createGroup} = useGroups();
+  const {sidoList} = useAreas();
+
+  const joinedGroups = myGroups.filter(g => g.status === 'joined');
+  const pendingGroups = myGroups.filter(g => g.status === 'pending');
+
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const selectedGroup = selectedGroupId ? myGroups.find(g => g.id === selectedGroupId) ?? null : null;
 
   // 모임 만들기
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newRegion, setNewRegion] = useState('');
+  const [newTags, setNewTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [newMaxMembers, setNewMaxMembers] = useState('');
+  const [newMaxOperators, setNewMaxOperators] = useState('');
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  // 코드로 참가
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
+  const maxOperatorLimit = newMaxMembers
+    ? Math.floor(Number(newMaxMembers) * 0.2)
+    : 0;
+  const operatorOver =
+    newMaxOperators !== '' && Number(newMaxOperators) > maxOperatorLimit;
 
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-    const color = GROUP_COLORS[groups.length % GROUP_COLORS.length];
-    setGroups(prev => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        name: newName.trim(),
-        description: newDesc.trim(),
-        memberCount: 1,
-        isLeader: true,
-        lastActivity: '방금 전',
-        color,
-      },
-    ]);
+  const addTag = () => {
+    const t = tagInput.trim();
+    if (!t || newTags.includes(t) || newTags.length >= 5) return;
+    setNewTags(prev => [...prev, t]);
+    setTagInput('');
+  };
+
+  const resetCreateForm = () => {
     setNewName('');
     setNewDesc('');
-    setShowCreateModal(false);
+    setNewRegion('');
+    setNewTags([]);
+    setTagInput('');
+    setNewMaxMembers('');
+    setNewMaxOperators('');
+    setNewImageUri(null);
   };
 
-  const handleJoin = () => {
-    if (!joinCode.trim()) return;
-    // TODO: 서버 연동 후 코드 검증
-    setJoinCode('');
-    setShowJoinModal(false);
+  const handlePickImage = async () => {
+    const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8});
+    if (result.didCancel || !result.assets?.[0]?.uri) return;
+    setNewImageUri(result.assets[0].uri);
   };
+
+  const canCreate =
+    newName.trim() &&
+    newRegion &&
+    newMaxMembers &&
+    Number(newMaxMembers) >= 2 &&
+    Number(newMaxMembers) <= 1000 &&
+    newMaxOperators !== '' &&
+    !operatorOver;
+
+  const handleCreate = async () => {
+    if (!canCreate || creating) return;
+    setCreating(true);
+    try {
+      await createGroup({
+        name: newName.trim(),
+        description: newDesc.trim(),
+        region: newRegion,
+        tags: newTags,
+        maxMembers: Number(newMaxMembers),
+        maxOperators: Number(newMaxOperators),
+        imageUri: newImageUri ?? undefined,
+      });
+      resetCreateForm();
+      setShowCreateModal(false);
+    } catch {
+      Alert.alert('오류', '모임 만들기에 실패했어요. 다시 시도해 주세요.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
 
   // 모임 상세 화면
   if (selectedGroup) {
     return (
       <GroupDetailScreen
         groupName={selectedGroup.name}
-        onBack={() => setSelectedGroup(null)}
+        isLeader={selectedGroup.isLeader}
+        onBack={() => setSelectedGroupId(null)}
       />
     );
   }
+
+  const isEmpty = joinedGroups.length === 0 && pendingGroups.length === 0;
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
@@ -102,223 +126,403 @@ export default function CommunityScreen() {
         <Text className="mt-1 text-sm text-gray-500">러너들과 함께 달려요</Text>
       </View>
 
-      {/* 액션 버튼 */}
-      <View style={{flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 10}}>
-        <TouchableOpacity
-          onPress={() => setShowCreateModal(true)}
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#f97316',
-            borderRadius: 12,
-            paddingVertical: 12,
-            gap: 6,
-          }}>
-          <MaterialIcons name="add" size={18} color="#fff" />
-          <Text style={{fontSize: 14, fontWeight: 'bold', color: '#fff'}}>모임 만들기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowJoinModal(true)}
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#fff',
-            borderRadius: 12,
-            paddingVertical: 12,
-            gap: 6,
-            borderWidth: 1,
-            borderColor: '#e5e7eb',
-            elevation: 1,
-            shadowColor: '#000',
-            shadowOpacity: 0.04,
-            shadowRadius: 4,
-            shadowOffset: {width: 0, height: 1},
-          }}>
-          <MaterialIcons name="vpn-key" size={18} color="#6b7280" />
-          <Text style={{fontSize: 14, fontWeight: 'bold', color: '#4b5563'}}>코드로 참가</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 모임 목록 */}
-      {groups.length === 0 ? (
+      {myGroupsLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      ) : isEmpty ? (
         <View className="flex-1 items-center justify-center">
           <MaterialIcons name="groups" size={56} color="#d1d5db" />
           <Text className="mt-4 text-base font-semibold text-gray-400">
             참가한 모임이 없어요
           </Text>
           <Text className="mt-1 text-sm text-gray-400">
-            모임을 만들거나 코드로 참가해보세요
+            모임 만들기로 시작해보세요
           </Text>
         </View>
       ) : (
         <FlatList
-          data={groups}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 24}}
+          data={[]}
+          keyExtractor={() => ''}
+          renderItem={null}
           showsVerticalScrollIndicator={false}
-          renderItem={({item}) => (
-            <TouchableOpacity
-              onPress={() => setSelectedGroup(item)}
-              activeOpacity={0.75}
-              className="mb-3 flex-row items-center overflow-hidden rounded-2xl bg-white px-4 py-4"
-              style={{
-                elevation: 2,
-                shadowColor: '#000',
-                shadowOpacity: 0.06,
-                shadowRadius: 8,
-                shadowOffset: {width: 0, height: 2},
-              }}>
-              {/* 모임 아이콘 */}
-              <View
-                className="h-12 w-12 items-center justify-center rounded-full"
-                style={{backgroundColor: item.color + '20', marginRight: 16}}>
-                <MaterialIcons name="groups" size={26} color={item.color} />
-              </View>
-
-              {/* 모임 정보 */}
-              <View className="flex-1">
-                <View className="flex-row items-center" style={{gap: 6}}>
-                  <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
-                    {item.name}
+          contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 24}}
+          ListHeaderComponent={
+            <>
+              {/* 참여 대기중 섹션 */}
+              {pendingGroups.length > 0 && (
+                <>
+                  <Text className="mb-2 text-xs font-semibold text-gray-400">
+                    참여 대기중 {pendingGroups.length}개
                   </Text>
-                  {item.isLeader && (
-                    <View className="rounded-full bg-orange-100 px-2 py-0.5">
-                      <Text className="text-xs font-bold text-orange-500">팀장</Text>
+                  {pendingGroups.map(item => (
+                    <View
+                      key={item.id}
+                      className="mb-3 flex-row items-center overflow-hidden rounded-2xl bg-white px-4 py-4"
+                      style={{
+                        opacity: 0.7,
+                        elevation: 1,
+                        shadowColor: '#000',
+                        shadowOpacity: 0.04,
+                        shadowRadius: 4,
+                        shadowOffset: {width: 0, height: 1},
+                      }}>
+                      {item.imageUri ? (
+                        <Image
+                          source={{uri: item.imageUri}}
+                          style={{width: 48, height: 48, borderRadius: 10, marginRight: 16}}
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 10,
+                            backgroundColor: item.color + '15',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: 16,
+                          }}>
+                          <MaterialIcons name="groups" size={26} color={item.color} />
+                        </View>
+                      )}
+                      <View className="flex-1">
+                        <View className="flex-row items-center" style={{gap: 6}}>
+                          <Text className="flex-1 text-base font-bold text-gray-700" numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <View className="rounded-full bg-gray-100 px-2 py-0.5">
+                            <Text className="text-xs font-bold text-gray-500">대기중</Text>
+                          </View>
+                        </View>
+                        <Text className="mt-0.5 text-xs text-gray-400" numberOfLines={1}>
+                          {item.description}
+                        </Text>
+                        <Text className="mt-1 text-xs text-gray-300">
+                          승인 후 모임에 참여할 수 있어요
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              {/* 참여 중 섹션 */}
+              {joinedGroups.length > 0 && (
+                <Text className="mb-2 text-xs font-semibold text-gray-400"
+                  style={{marginTop: pendingGroups.length > 0 ? 8 : 0}}>
+                  참여 중 {joinedGroups.length}개
+                </Text>
+              )}
+              {joinedGroups.map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => setSelectedGroupId(item.id)}
+                  activeOpacity={0.75}
+                  className="mb-3 flex-row items-center overflow-hidden rounded-2xl bg-white px-4 py-4"
+                  style={{
+                    elevation: 2,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.06,
+                    shadowRadius: 8,
+                    shadowOffset: {width: 0, height: 2},
+                  }}>
+                  {item.imageUri ? (
+                    <Image
+                      source={{uri: item.imageUri}}
+                      style={{width: 48, height: 48, borderRadius: 10, marginRight: 16}}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 10,
+                        backgroundColor: item.color + '20',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 16,
+                      }}>
+                      <MaterialIcons name="groups" size={26} color={item.color} />
                     </View>
                   )}
-                </View>
-                <Text className="mt-0.5 text-xs text-gray-400" numberOfLines={1}>
-                  {item.description}
-                </Text>
-                <View className="mt-1 flex-row items-center" style={{gap: 8}}>
-                  <View className="flex-row items-center" style={{gap: 2}}>
-                    <MaterialIcons name="person" size={12} color="#9ca3af" />
-                    <Text className="text-xs text-gray-400">{item.memberCount}명</Text>
+                  <View className="flex-1">
+                    <View className="flex-row items-center" style={{gap: 6}}>
+                      <Text className="flex-1 text-base font-bold text-gray-900" numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      {item.isLeader && (
+                        <View className="rounded-full bg-orange-100 px-2 py-0.5">
+                          <Text className="text-xs font-bold text-orange-500">팀장</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text className="mt-0.5 text-xs text-gray-400" numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                    <View className="mt-1 flex-row items-center" style={{gap: 8}}>
+                      <View className="flex-row items-center" style={{gap: 2}}>
+                        <MaterialIcons name="person" size={12} color="#9ca3af" />
+                        <Text className="text-xs text-gray-400">{item.memberCount}명</Text>
+                      </View>
+                      <Text className="text-xs text-gray-300">·</Text>
+                      <Text className="text-xs text-gray-400">{item.lastActivity}</Text>
+                    </View>
                   </View>
-                  <Text className="text-xs text-gray-300">·</Text>
-                  <Text className="text-xs text-gray-400">{item.lastActivity}</Text>
-                </View>
-              </View>
-
-              <MaterialIcons name="chevron-right" size={20} color="#d1d5db" />
-            </TouchableOpacity>
-          )}
+                  <MaterialIcons name="chevron-right" size={20} color="#d1d5db" />
+                </TouchableOpacity>
+              ))}
+            </>
+          }
         />
       )}
 
       {/* 모임 만들기 모달 */}
-      <Modal visible={showCreateModal} transparent animationType="fade">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setShowCreateModal(false)}
-          className="flex-1 items-center justify-center"
-          style={{backgroundColor: 'rgba(0,0,0,0.4)'}}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={e => e.stopPropagation()}
-            style={{
-              marginHorizontal: 24,
-              alignSelf: 'stretch',
-              backgroundColor: '#fff',
-              borderRadius: 24,
-              padding: 24,
-            }}>
-            <Text className="mb-4 text-lg font-bold text-gray-900">모임 만들기</Text>
-            <Text className="mb-1 text-xs font-semibold text-gray-500">모임 이름</Text>
-            <TextInput
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="예) 한강 러닝 크루"
-              placeholderTextColor="#9ca3af"
-              className="mb-3 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-              style={{borderWidth: 1, borderColor: '#e5e7eb'}}
-              maxLength={30}
-            />
-            <Text className="mb-1 text-xs font-semibold text-gray-500">소개 (선택)</Text>
-            <TextInput
-              value={newDesc}
-              onChangeText={setNewDesc}
-              placeholder="모임을 간단히 소개해 주세요"
-              placeholderTextColor="#9ca3af"
-              className="mb-5 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-              style={{borderWidth: 1, borderColor: '#e5e7eb'}}
-              maxLength={50}
-            />
-            <View className="flex-row" style={{gap: 8}}>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowCreateModal(false);
-                  setNewName('');
-                  setNewDesc('');
-                }}
-                className="flex-1 items-center rounded-xl bg-gray-100 py-3">
-                <Text className="text-sm font-bold text-gray-500">취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCreate}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{backgroundColor: newName.trim() ? '#f97316' : '#fed7aa'}}>
-                <Text className="text-sm font-bold text-white">만들기</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+      <Modal
+        visible={showCreateModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setShowCreateModal(false); resetCreateForm(); }}>
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-white">
+          {/* 헤더 */}
+          <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
+            <TouchableOpacity onPress={() => { setShowCreateModal(false); resetCreateForm(); }}>
+              <Text className="text-base text-gray-500">취소</Text>
+            </TouchableOpacity>
+            <Text className="text-base font-bold text-gray-900">모임 만들기</Text>
+            <TouchableOpacity onPress={handleCreate} disabled={creating}>
+              {creating ? (
+                <ActivityIndicator size="small" color="#f97316" />
+              ) : (
+                <Text className="text-base font-bold" style={{color: canCreate ? '#f97316' : '#fed7aa'}}>
+                  만들기
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1">
+            <ScrollView
+              contentContainerStyle={{padding: 20, paddingBottom: 40}}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled">
+
+              {/* 프로필 이미지 */}
+              <View className="mb-5 items-center">
+                <TouchableOpacity onPress={handlePickImage} activeOpacity={0.8}>
+                  {newImageUri ? (
+                    <View>
+                      <Image
+                        source={{uri: newImageUri}}
+                        style={{width: 88, height: 88, borderRadius: 20}}
+                      />
+                      <View
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          width: 26,
+                          height: 26,
+                          borderRadius: 13,
+                          backgroundColor: '#f97316',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 2,
+                          borderColor: '#fff',
+                        }}>
+                        <MaterialIcons name="edit" size={13} color="#fff" />
+                      </View>
+                    </View>
+                  ) : (
+                    <View
+                      style={{
+                        width: 88,
+                        height: 88,
+                        borderRadius: 20,
+                        backgroundColor: '#f3f4f6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 2,
+                        borderColor: '#e5e7eb',
+                        borderStyle: 'dashed',
+                      }}>
+                      <MaterialIcons name="add-a-photo" size={28} color="#9ca3af" />
+                      <Text className="mt-1 text-xs text-gray-400">사진 추가</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* 모임 이름 */}
+              <Text className="mb-1 text-sm font-semibold text-gray-700">
+                모임 이름 <Text className="text-orange-500">*</Text>
+              </Text>
+              <TextInput
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="예) 한강 러닝 크루"
+                placeholderTextColor="#9ca3af"
+                className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                maxLength={30}
+              />
+
+              {/* 소개 */}
+              <Text className="mb-1 text-sm font-semibold text-gray-700">소개 (선택)</Text>
+              <TextInput
+                value={newDesc}
+                onChangeText={setNewDesc}
+                placeholder="모임을 간단히 소개해 주세요"
+                placeholderTextColor="#9ca3af"
+                multiline
+                textAlignVertical="top"
+                className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                style={{borderWidth: 1, borderColor: '#e5e7eb', height: 72}}
+                maxLength={100}
+              />
+
+              {/* 지역 */}
+              <Text className="mb-2 text-sm font-semibold text-gray-700">
+                지역 <Text className="text-orange-500">*</Text>
+              </Text>
+              <View className="mb-4 flex-row flex-wrap" style={{gap: 8}}>
+                {sidoList.map(area => {
+                  const r = toShortLabel(area.areaName);
+                  const active = newRegion === r;
+                  return (
+                    <TouchableOpacity
+                      key={area.areaCode}
+                      onPress={() => setNewRegion(r)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 7,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: active ? '#f97316' : '#e5e7eb',
+                        backgroundColor: active ? '#fff7ed' : '#f9fafb',
+                      }}>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color: active ? '#ea580c' : '#6b7280',
+                        }}>
+                        {r}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 태그 */}
+              <Text className="mb-1 text-sm font-semibold text-gray-700">
+                태그 (선택, 최대 5개)
+              </Text>
+              <View className="mb-2 flex-row items-center" style={{gap: 8}}>
+                <TextInput
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  onSubmitEditing={addTag}
+                  placeholder="예) 새벽, 초보환영"
+                  placeholderTextColor="#9ca3af"
+                  returnKeyType="done"
+                  className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                  style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                  maxLength={10}
+                />
+                <TouchableOpacity
+                  onPress={addTag}
+                  className="h-11 w-11 items-center justify-center rounded-xl bg-orange-500">
+                  <MaterialIcons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              {newTags.length > 0 && (
+                <View className="mb-4 flex-row flex-wrap" style={{gap: 6}}>
+                  {newTags.map(tag => (
+                    <TouchableOpacity
+                      key={tag}
+                      onPress={() => setNewTags(prev => prev.filter(t => t !== tag))}
+                      className="flex-row items-center rounded-full bg-orange-50 px-3 py-1"
+                      style={{gap: 4}}>
+                      <Text className="text-xs font-semibold text-orange-500">#{tag}</Text>
+                      <MaterialIcons name="close" size={12} color="#f97316" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* 최대 인원 + 운영진 */}
+              <View className="flex-row" style={{gap: 12}}>
+                <View className="flex-1">
+                  <Text className="mb-1 text-sm font-semibold text-gray-700">
+                    최대 인원 <Text className="text-orange-500">*</Text>
+                  </Text>
+                  <View className="flex-row items-center" style={{gap: 6}}>
+                    <TextInput
+                      value={newMaxMembers}
+                      onChangeText={v => {
+                        setNewMaxMembers(v.replace(/[^0-9]/g, ''));
+                        setNewMaxOperators('');
+                      }}
+                      placeholder="최대 1000"
+                      placeholderTextColor="#9ca3af"
+                      keyboardType="numeric"
+                      maxLength={4}
+                      className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                      style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                    />
+                    <Text className="text-sm text-gray-500">명</Text>
+                  </View>
+                  {newMaxMembers && (Number(newMaxMembers) < 2 || Number(newMaxMembers) > 1000) && (
+                    <Text className="mt-1 text-xs text-red-400">2~1000명 사이로 입력해 주세요</Text>
+                  )}
+                </View>
+
+                <View className="flex-1">
+                  <Text className="mb-1 text-sm font-semibold text-gray-700">
+                    운영진 <Text className="text-orange-500">*</Text>
+                  </Text>
+                  <View className="flex-row items-center" style={{gap: 6}}>
+                    <TextInput
+                      value={newMaxOperators}
+                      onChangeText={v => setNewMaxOperators(v.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                      placeholderTextColor="#9ca3af"
+                      keyboardType="numeric"
+                      maxLength={3}
+                      editable={!!newMaxMembers && Number(newMaxMembers) >= 2 && Number(newMaxMembers) <= 1000}
+                      className="flex-1 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: operatorOver ? '#ef4444' : '#e5e7eb',
+                        opacity: (!newMaxMembers || Number(newMaxMembers) < 2) ? 0.5 : 1,
+                      }}
+                    />
+                    <Text className="text-sm text-gray-500">명</Text>
+                  </View>
+                  {newMaxMembers && Number(newMaxMembers) >= 2 && (
+                    <Text className={`mt-1 text-xs ${operatorOver ? 'text-red-400' : 'text-gray-400'}`}>
+                      최대 {maxOperatorLimit}명 (인원의 20%)
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
-      {/* 코드로 참가 모달 */}
-      <Modal visible={showJoinModal} transparent animationType="fade">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setShowJoinModal(false)}
-          className="flex-1 items-center justify-center"
-          style={{backgroundColor: 'rgba(0,0,0,0.4)'}}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={e => e.stopPropagation()}
-            style={{
-              marginHorizontal: 24,
-              alignSelf: 'stretch',
-              backgroundColor: '#fff',
-              borderRadius: 24,
-              padding: 24,
-            }}>
-            <Text className="mb-2 text-lg font-bold text-gray-900">코드로 참가</Text>
-            <Text className="mb-4 text-xs text-gray-400">
-              팀장에게 받은 초대 코드를 입력해 주세요
-            </Text>
-            <TextInput
-              value={joinCode}
-              onChangeText={text => setJoinCode(text.toUpperCase())}
-              placeholder="초대 코드 입력"
-              placeholderTextColor="#9ca3af"
-              className="mb-5 rounded-xl bg-gray-50 px-4 py-3 text-center text-lg font-bold tracking-widest text-gray-900"
-              style={{borderWidth: 1, borderColor: '#e5e7eb', letterSpacing: 8}}
-              maxLength={8}
-              autoCapitalize="characters"
-            />
-            <View className="flex-row" style={{gap: 8}}>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowJoinModal(false);
-                  setJoinCode('');
-                }}
-                className="flex-1 items-center rounded-xl bg-gray-100 py-3">
-                <Text className="text-sm font-bold text-gray-500">취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleJoin}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{backgroundColor: joinCode.trim() ? '#f97316' : '#fed7aa'}}>
-                <Text className="text-sm font-bold text-white">참가하기</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      {/* 모임 만들기 FAB */}
+      <TouchableOpacity
+        onPress={() => setShowCreateModal(true)}
+        className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-orange-500"
+        style={{elevation: 4, shadowColor: '#f97316', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: {width: 0, height: 4}}}>
+        <MaterialIcons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
     </SafeAreaView>
   );
 }

@@ -3,6 +3,8 @@ import {NavigationContainer} from '@react-navigation/native';
 import React from 'react';
 import {ActivityIndicator, StatusBar, View} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {AreaProvider} from './src/context/AreaContext';
+import {GroupProvider} from './src/context/GroupContext';
 import {UserProvider, useUser} from './src/context/UserContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
@@ -28,9 +30,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
-      <UserProvider>
-        <AppContent />
-      </UserProvider>
+      <AreaProvider>
+        <UserProvider>
+          <GroupProvider>
+            <AppContent />
+          </GroupProvider>
+        </UserProvider>
+      </AreaProvider>
     </SafeAreaProvider>
   );
 }

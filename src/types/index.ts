@@ -28,3 +28,32 @@ export type UserRace = {
 };
 
 export type SocialProvider = 'google' | 'naver' | 'kakao';
+
+export type GroupRole = 'OWNER' | 'MANAGER' | 'MEMBER';
+
+export type GroupResponse = {
+  groupIdx: number;
+  name: string;
+  description: string | null;
+  groupMembers: number | null;   // null = 무제한
+  managerMembers: number | null;
+  areaCode: string;
+  tag1: string | null;
+  tag2: string | null;
+  tag3: string | null;
+  tag4: string | null;
+  tag5: string | null;
+  profileImage: string | null;
+  ownerIdx: number;
+  role: GroupRole | null;  // 비회원 탐색 시 null
+  memberCount: number;
+};
+
+export type Area = {
+  areaIdx: number;
+  areaCode: string;  // 시도 2자리 / 시군구 5자리 / 읍면동 8자리
+  areaName: string;  // 예: 서울특별시, 종로구
+  areaLevel: 1 | 2 | 3;
+  parentCode: string | null;
+  fullName: string;  // 예: 경기도 수원시 장안구
+};

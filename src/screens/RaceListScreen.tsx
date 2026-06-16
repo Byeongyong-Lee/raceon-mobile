@@ -99,41 +99,45 @@ function DdaySection({
             <Text style={{fontSize: 12, fontWeight: '700', color: 'white'}}>로그인</Text>
           </TouchableOpacity>
         </View>
-      ) : myRaces.length === 0 ? (
-        <Text className="px-4 text-sm text-gray-400">신청한 대회가 없어요</Text>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{paddingHorizontal: 16, gap: 10}}>
-          {myRaces.map(race => {
-            const label = getDdayLabel(race.raceDate);
-            const isPast = label.startsWith('D+');
-            return (
-              <View
-                key={String(race.userRaceIdx)}
-                className="rounded-2xl bg-white px-4 py-3"
-                style={{
-                  minWidth: 130,
-                  elevation: 2,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.06,
-                  shadowRadius: 8,
-                  shadowOffset: {width: 0, height: 2},
-                }}>
-                <Text className="text-xs text-gray-400">{formatDate(race.raceDate)}</Text>
-                <Text className="mt-0.5 text-sm font-semibold text-gray-800" numberOfLines={1}>
-                  {race.raceName}
-                </Text>
-                <Text
-                  className="mt-1 text-xl font-black"
-                  style={{color: isPast ? '#9ca3af' : '#f97316'}}>
-                  {label}
-                </Text>
-              </View>
-            );
-          })}
-        </ScrollView>
+        (() => {
+          const upcomingRaces = myRaces.filter(
+            race => !getDdayLabel(race.raceDate).startsWith('D+'),
+          );
+          return upcomingRaces.length === 0 ? (
+            <Text className="px-4 text-sm text-gray-400">신청한 대회가 없어요</Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{paddingHorizontal: 16, gap: 10}}>
+              {upcomingRaces.map(race => {
+                const label = getDdayLabel(race.raceDate);
+                return (
+                  <View
+                    key={String(race.userRaceIdx)}
+                    className="rounded-2xl bg-white px-4 py-3"
+                    style={{
+                      minWidth: 130,
+                      elevation: 2,
+                      shadowColor: '#000',
+                      shadowOpacity: 0.06,
+                      shadowRadius: 8,
+                      shadowOffset: {width: 0, height: 2},
+                    }}>
+                    <Text className="text-xs text-gray-400">{formatDate(race.raceDate)}</Text>
+                    <Text className="mt-0.5 text-sm font-semibold text-gray-800" numberOfLines={1}>
+                      {race.raceName}
+                    </Text>
+                    <Text className="mt-1 text-xl font-black" style={{color: '#f97316'}}>
+                      {label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          );
+        })()
       )}
     </View>
   );
