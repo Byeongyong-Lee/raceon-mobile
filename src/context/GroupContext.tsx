@@ -1,6 +1,6 @@
 import React, {createContext, useContext, useEffect, useRef, useState} from 'react';
 import Config from 'react-native-config';
-import {GroupResponse} from '../types';
+import {GroupResponse, GroupRole} from '../types';
 import {fetchGroups, fetchMyGroups, createGroupApi, applyGroupApi} from '../services/groupApi';
 import {areaCodeToLabel, labelToAreaCode} from '../constants/regions';
 import {useUser} from './UserContext';
@@ -22,6 +22,7 @@ export type Group = {
   color: string;
   status: GroupStatus;
   isLeader: boolean;
+  role: GroupRole | null;
   lastActivity: string;
   region: string;
   imageUri?: string;
@@ -81,6 +82,7 @@ function mapGroupResponse(r: GroupResponse, status: GroupStatus = 'none'): Group
     color: GROUP_COLORS[r.groupIdx % GROUP_COLORS.length],
     status,
     isLeader: r.role === 'OWNER',
+    role: r.role ?? null,
     lastActivity: '',
     region: areaCodeToLabel(r.areaCode),
     imageUri: r.profileImage ? `${BASE_URL}${r.profileImage}` : undefined,
@@ -102,6 +104,7 @@ const INITIAL_GROUPS: Group[] = [
     color: '#f97316',
     status: 'none',
     isLeader: false,
+    role: null,
     lastActivity: '방금 전',
     region: '서울',
   },
@@ -118,6 +121,7 @@ const INITIAL_GROUPS: Group[] = [
     color: '#3b82f6',
     status: 'none',
     isLeader: false,
+    role: null,
     lastActivity: '1시간 전',
     region: '서울',
   },
@@ -134,6 +138,7 @@ const INITIAL_GROUPS: Group[] = [
     color: '#8b5cf6',
     status: 'none',
     isLeader: false,
+    role: null,
     lastActivity: '30분 전',
     region: '서울',
   },
@@ -150,6 +155,7 @@ const INITIAL_GROUPS: Group[] = [
     color: '#10b981',
     status: 'none',
     isLeader: false,
+    role: null,
     lastActivity: '2시간 전',
     region: '경기',
   },
@@ -166,6 +172,7 @@ const INITIAL_GROUPS: Group[] = [
     color: '#ef4444',
     status: 'none',
     isLeader: false,
+    role: null,
     lastActivity: '3시간 전',
     region: '서울',
   },
@@ -182,6 +189,7 @@ const INITIAL_GROUPS: Group[] = [
     color: '#f59e0b',
     status: 'none',
     isLeader: false,
+    role: null,
     lastActivity: '어제',
     region: '부산',
   },
@@ -274,7 +282,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     if (target) {
       setMyGroups(prev => [
         ...prev.filter(g => g.id !== id),
-        {...target, status: 'pending' as GroupStatus, isLeader: false},
+        {...target, status: 'pending' as GroupStatus, isLeader: false, role: null},
       ]);
     }
 

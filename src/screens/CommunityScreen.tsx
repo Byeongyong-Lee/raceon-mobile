@@ -271,9 +271,19 @@ export default function CommunityScreen() {
                       <Text className="flex-1 text-base font-bold text-gray-900" numberOfLines={1}>
                         {item.name}
                       </Text>
-                      {item.isLeader && (
+                      {item.role === 'OWNER' && (
                         <View className="rounded-full bg-orange-100 px-2 py-0.5">
-                          <Text className="text-xs font-bold text-orange-500">팀장</Text>
+                          <Text className="text-xs font-bold text-orange-500">모임장</Text>
+                        </View>
+                      )}
+                      {item.role === 'MANAGER' && (
+                        <View className="rounded-full bg-blue-100 px-2 py-0.5">
+                          <Text className="text-xs font-bold text-blue-500">운영진</Text>
+                        </View>
+                      )}
+                      {item.role === 'MEMBER' && (
+                        <View className="rounded-full bg-gray-100 px-2 py-0.5">
+                          <Text className="text-xs font-bold text-gray-500">회원</Text>
                         </View>
                       )}
                     </View>
