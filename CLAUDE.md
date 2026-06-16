@@ -25,6 +25,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **cross-env**: Windows 호환 환경변수 설정 (npm 스크립트에서 `ENVFILE` 전달 시 사용)
 - **@react-native-async-storage/async-storage**: JWT 토큰 영구 저장
 - **react-native-image-picker**: 갤러리에서 이미지 선택 (기록증 업로드)
+- **@stomp/stompjs**: STOMP over WebSocket 클라이언트 — 모임 채팅 실시간 송수신
 
 ## 프로젝트 구조
 

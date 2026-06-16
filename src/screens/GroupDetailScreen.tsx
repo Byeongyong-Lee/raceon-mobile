@@ -1,4 +1,7 @@
 import React, {useState} from 'react';
+import {Client} from '@stomp/stompjs';
+import Config from 'react-native-config';
+import {tokenStorage} from '../services/tokenStorage';
 import {
   ActivityIndicator,
   Alert,
@@ -35,18 +38,12 @@ import {
   fetchBoardComments,
   createBoardComment,
   deleteBoardComment,
+  fetchChatHistory,
 } from '../services/groupApi';
-import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment} from '../types';
+import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, ChatMessage} from '../types';
 
 type TabType = '게시판' | '채팅' | '모임';
 
-type Message = {
-  id: string;
-  author: string;
-  content: string;
-  time: string;
-  isMine: boolean;
-};
 
 type ConnectedRace = {
   name: string;
@@ -68,43 +65,6 @@ type GroupMeeting = {
   connectedRace?: ConnectedRace;
 };
 
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: '1',
-    author: '김러너',
-    content: '다음 모임 언제 하나요?',
-    time: '오전 9:12',
-    isMine: false,
-  },
-  {
-    id: '2',
-    author: '나',
-    content: '이번 주 일요일 어떠세요?',
-    time: '오전 9:15',
-    isMine: true,
-  },
-  {
-    id: '3',
-    author: '이달리기',
-    content: '좋아요! 몇 시에 만날까요?',
-    time: '오전 9:17',
-    isMine: false,
-  },
-  {
-    id: '4',
-    author: '나',
-    content: '오전 7시 뚝섬역 어떠세요?',
-    time: '오전 9:18',
-    isMine: true,
-  },
-  {
-    id: '5',
-    author: '박마라톤',
-    content: '저도 참가할게요!',
-    time: '오전 9:20',
-    isMine: false,
-  },
-];
 
 const MOCK_MEETINGS: GroupMeeting[] = [
   {
@@ -607,36 +567,139 @@ function BoardTab({
 // ─────────────────────────────────────────
 // 채팅 탭
 // ─────────────────────────────────────────
-function ChatTab() {
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+function ChatTab({groupIdx, myUserIdx}: {groupIdx: number; myUserIdx: number}) {
+  // messages: DESC 순 (최신이 index 0) — inverted FlatList에 맞춤
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [messageInput, setMessageInput] = useState('');
+  const stompRef = React.useRef<Client | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      // 1) 채팅 기록 로드 (DESC 순)
+      try {
+        const history = await fetchChatHistory(groupIdx);
+        if (mounted) {
+          setMessages(history);
+          setHasMore(history.length >= 50);
+        }
+      } catch {
+        // 기록 없어도 연결은 진행
+      } finally {
+        if (mounted) setLoading(false);
+      }
+
+      // 2) STOMP 연결
+      const token = await tokenStorage.get();
+      const baseUrl = Config.API_BASE_URL ?? 'http://localhost:28300';
+      const wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws/native';
+
+      const client = new Client({
+        webSocketFactory: () => new WebSocket(wsUrl),
+        connectHeaders: token ? {Authorization: `Bearer ${token}`} : {},
+        reconnectDelay: 5000,
+        onConnect: () => {
+          if (!mounted) return;
+          setConnected(true);
+          client.subscribe(`/sub/groups/${groupIdx}/chat`, frame => {
+            if (!mounted) return;
+            const msg: ChatMessage = JSON.parse(frame.body);
+            setMessages(prev => [msg, ...prev]); // 최신을 앞에
+          });
+        },
+        onDisconnect: () => { if (mounted) setConnected(false); },
+        onStompError: () => { if (mounted) setConnected(false); },
+        onWebSocketError: () => { if (mounted) setConnected(false); },
+      });
+      client.activate();
+      if (mounted) stompRef.current = client;
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+      stompRef.current?.deactivate();
+      stompRef.current = null;
+    };
+  }, []);
+
+  // 오래된 메시지 더 불러오기 (inverted FlatList에서 onEndReached = 위 끝에 도달)
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || messages.length === 0) return;
+    const oldest = messages[messages.length - 1]; // DESC에서 마지막 = 가장 오래됨
+    setLoadingMore(true);
+    try {
+      const older = await fetchChatHistory(groupIdx, oldest.chatIdx);
+      if (older.length === 0) {
+        setHasMore(false);
+      } else {
+        setMessages(prev => [...prev, ...older]);
+        setHasMore(older.length >= 50);
+      }
+    } catch {}
+    finally { setLoadingMore(false); }
+  };
 
   const sendMessage = () => {
-    if (!message.trim()) return;
-    setMessages(prev => [
-      ...prev,
-      {
-        id: String(prev.length + 1),
-        author: '나',
-        content: message.trim(),
-        time: new Date().toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'}),
-        isMine: true,
-      },
-    ]);
-    setMessage('');
+    const text = messageInput.trim();
+    if (!text || !stompRef.current?.connected) return;
+    stompRef.current.publish({
+      destination: `/pub/groups/${groupIdx}/chat`,
+      body: JSON.stringify({content: text, messageType: 'TEXT'}),
+    });
+    setMessageInput('');
   };
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#f97316" />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1">
+      {!connected && (
+        <View
+          className="flex-row items-center justify-center bg-gray-50 py-1.5"
+          style={{gap: 6}}>
+          <ActivityIndicator size="small" color="#9ca3af" />
+          <Text className="text-xs text-gray-400">채팅 서버에 연결 중...</Text>
+        </View>
+      )}
+
       <FlatList
+        inverted
         data={messages}
-        keyExtractor={item => item.id}
+        keyExtractor={item => String(item.chatIdx)}
         contentContainerStyle={{padding: 16}}
         showsVerticalScrollIndicator={false}
-        renderItem={({item}) =>
-          item.isMine ? (
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator color="#f97316" style={{marginVertical: 12}} />
+          ) : null
+        }
+        ListEmptyComponent={
+          <View className="items-center py-10">
+            <MaterialIcons name="chat" size={48} color="#e5e7eb" />
+            <Text className="mt-3 text-sm text-gray-400">첫 번째 메시지를 보내보세요!</Text>
+          </View>
+        }
+        renderItem={({item}) => {
+          const isMine = item.senderIdx === myUserIdx;
+          const timeStr = item.createDt?.slice(11, 16) ?? '';
+          return isMine ? (
             <View className="mb-3 flex-row justify-end">
               <View>
                 <View
@@ -644,18 +707,18 @@ function ChatTab() {
                   style={{maxWidth: 240}}>
                   <Text className="text-sm text-white">{item.content}</Text>
                 </View>
-                <Text className="mt-0.5 text-right text-xs text-gray-400">{item.time}</Text>
+                <Text className="mt-0.5 text-right text-xs text-gray-400">{timeStr}</Text>
               </View>
             </View>
           ) : (
             <View className="mb-3 flex-row items-end" style={{gap: 8}}>
               <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-200">
                 <Text className="text-xs font-bold text-gray-600">
-                  {item.author.slice(0, 1)}
+                  {String(item.senderIdx).slice(-2)}
                 </Text>
               </View>
               <View>
-                <Text className="mb-1 text-xs text-gray-400">{item.author}</Text>
+                <Text className="mb-1 text-xs text-gray-400">멤버 #{item.senderIdx}</Text>
                 <View
                   className="rounded-2xl rounded-tl-sm bg-white px-4 py-2"
                   style={{
@@ -668,25 +731,31 @@ function ChatTab() {
                   }}>
                   <Text className="text-sm text-gray-800">{item.content}</Text>
                 </View>
-                <Text className="mt-0.5 text-xs text-gray-400">{item.time}</Text>
+                <Text className="mt-0.5 text-xs text-gray-400">{timeStr}</Text>
               </View>
             </View>
-          )
-        }
+          );
+        }}
       />
-      <View className="flex-row items-center border-t border-gray-100 bg-white px-3 py-2" style={{gap: 8}}>
+
+      <View
+        className="flex-row items-center border-t border-gray-100 bg-white px-3 py-2"
+        style={{gap: 8}}>
         <TextInput
-          value={message}
-          onChangeText={setMessage}
-          placeholder="메시지 입력"
+          value={messageInput}
+          onChangeText={setMessageInput}
+          placeholder={connected ? '메시지 입력' : '연결 중...'}
           placeholderTextColor="#9ca3af"
+          editable={connected}
           className="flex-1 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-900"
           returnKeyType="send"
           onSubmitEditing={sendMessage}
         />
         <TouchableOpacity
           onPress={sendMessage}
-          className="h-9 w-9 items-center justify-center rounded-full bg-orange-500">
+          disabled={!connected}
+          className="h-9 w-9 items-center justify-center rounded-full"
+          style={{backgroundColor: connected ? '#f97316' : '#e5e7eb'}}>
           <MaterialIcons name="send" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -2010,7 +2079,9 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       {activeTab === '게시판' && (
         <BoardTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} role={role} />
       )}
-      {activeTab === '채팅' && <ChatTab />}
+      {activeTab === '채팅' && (
+        <ChatTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} />
+      )}
       {activeTab === '모임' && <MeetingTab isLeader={isLeader} />}
     </SafeAreaView>
   );
