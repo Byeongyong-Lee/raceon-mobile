@@ -16,10 +16,19 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {launchImageLibrary} from 'react-native-image-picker';
-import {Group} from '../context/GroupContext';
-import {useGroups} from '../context/GroupContext';
+import {Group, useGroups} from '../context/GroupContext';
 import {useAreas} from '../context/AreaContext';
-import {toShortLabel, labelToAreaCode} from '../constants/regions';
+import {useUser} from '../context/UserContext';
+import {toShortLabel} from '../constants/regions';
+import {
+  fetchGroupMembers,
+  fetchGroupApplications,
+  approveApplication,
+  rejectApplication,
+  kickMember,
+  changeMemberRole,
+} from '../services/groupApi';
+import {GroupMemberItem, ApplicationItem, GroupRole} from '../types';
 
 type TabType = '게시판' | '채팅' | '모임';
 
@@ -847,6 +856,298 @@ function MeetingTab({isLeader}: {isLeader: boolean}) {
 // 메인 화면
 // ─────────────────────────────────────────
 
+// ─────────────────────────────────────────
+// 멤버 관리 화면
+// ─────────────────────────────────────────
+
+const ROLE_LABEL: Record<GroupRole, string> = {
+  OWNER: '모임장',
+  MANAGER: '운영진',
+  MEMBER: '회원',
+};
+
+const ROLE_COLOR: Record<GroupRole, {bg: string; text: string}> = {
+  OWNER:   {bg: '#fff7ed', text: '#ea580c'},
+  MANAGER: {bg: '#eff6ff', text: '#3b82f6'},
+  MEMBER:  {bg: '#f3f4f6', text: '#6b7280'},
+};
+
+function MemberManagementScreen({
+  groupIdx,
+  role,
+  myUserIdx,
+  onBack,
+}: {
+  groupIdx: number;
+  role: GroupRole;
+  myUserIdx: number;
+  onBack: () => void;
+}) {
+  type TabType = 'applications' | 'members';
+  const [activeTab, setActiveTab] = useState<TabType>('applications');
+  const [members, setMembers] = useState<GroupMemberItem[]>([]);
+  const [applications, setApplications] = useState<ApplicationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const load = async () => {
+    try {
+      const [m, a] = await Promise.all([
+        fetchGroupMembers(groupIdx),
+        fetchGroupApplications(groupIdx, 'PENDING'),
+      ]);
+      setMembers(m);
+      setApplications(a);
+    } catch {
+      Alert.alert('오류', '데이터를 불러오지 못했어요.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => { load(); }, []);
+
+  const handleApprove = async (applicationIdx: number) => {
+    setActionLoading(applicationIdx);
+    try {
+      await approveApplication(groupIdx, applicationIdx);
+      setApplications(prev => prev.filter(a => a.applicationIdx !== applicationIdx));
+      const updated = await fetchGroupMembers(groupIdx);
+      setMembers(updated);
+    } catch (e: any) {
+      Alert.alert('오류', e.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (applicationIdx: number) => {
+    setActionLoading(applicationIdx);
+    try {
+      await rejectApplication(groupIdx, applicationIdx);
+      setApplications(prev => prev.filter(a => a.applicationIdx !== applicationIdx));
+    } catch (e: any) {
+      Alert.alert('오류', e.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleKick = (target: GroupMemberItem) => {
+    Alert.alert(
+      '멤버 강퇴',
+      `멤버 #${target.userIdx}를 강퇴하시겠어요?`,
+      [
+        {text: '취소', style: 'cancel'},
+        {
+          text: '강퇴',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await kickMember(groupIdx, target.userIdx);
+              setMembers(prev => prev.filter(m => m.userIdx !== target.userIdx));
+            } catch (e: any) {
+              Alert.alert('오류', e.message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRoleChange = (target: GroupMemberItem) => {
+    const newRole: GroupRole = target.role === 'MEMBER' ? 'MANAGER' : 'MEMBER';
+    const label = newRole === 'MANAGER' ? '운영진으로 변경' : '회원으로 변경';
+    Alert.alert(
+      '역할 변경',
+      `멤버 #${target.userIdx}를 ${ROLE_LABEL[newRole]}으로 변경하시겠어요?`,
+      [
+        {text: '취소', style: 'cancel'},
+        {
+          text: label,
+          onPress: async () => {
+            try {
+              await changeMemberRole(groupIdx, target.userIdx, newRole);
+              setMembers(prev =>
+                prev.map(m => m.userIdx === target.userIdx ? {...m, role: newRole} : m),
+              );
+            } catch (e: any) {
+              Alert.alert('오류', e.message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const canActOn = (target: GroupMemberItem) => {
+    if (target.userIdx === myUserIdx) return false; // 본인
+    if (target.role === 'OWNER') return false;       // 모임장은 건드릴 수 없음
+    if (role === 'MANAGER' && target.role === 'MANAGER') return false; // 운영진끼리
+    return true;
+  };
+
+  const pendingCount = applications.length;
+
+  return (
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
+      {/* 헤더 */}
+      <View className="flex-row items-center bg-white px-4 py-3"
+        style={{borderBottomWidth: 1, borderBottomColor: '#f3f4f6'}}>
+        <TouchableOpacity onPress={onBack} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          <MaterialIcons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text className="ml-3 flex-1 text-lg font-bold text-gray-900">멤버 관리</Text>
+      </View>
+
+      {/* 탭 */}
+      <View className="flex-row bg-white" style={{borderBottomWidth: 1, borderBottomColor: '#f3f4f6'}}>
+        {([['applications', '가입 신청'], ['members', '멤버']] as [TabType, string][]).map(([key, label]) => (
+          <TouchableOpacity
+            key={key}
+            onPress={() => setActiveTab(key)}
+            className="flex-1 items-center py-3">
+            <View className="flex-row items-center" style={{gap: 4}}>
+              <Text className="text-sm font-semibold"
+                style={{color: activeTab === key ? '#f97316' : '#9ca3af'}}>
+                {label}
+              </Text>
+              {key === 'applications' && pendingCount > 0 && (
+                <View className="h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1">
+                  <Text className="text-xs font-bold text-white">{pendingCount}</Text>
+                </View>
+              )}
+            </View>
+            {activeTab === key && <View className="absolute bottom-0 h-0.5 w-full bg-orange-500" />}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      ) : activeTab === 'applications' ? (
+        /* ── 가입 신청 탭 ── */
+        <FlatList
+          data={applications}
+          keyExtractor={item => String(item.applicationIdx)}
+          contentContainerStyle={{padding: 16, paddingBottom: 24}}
+          ListEmptyComponent={
+            <View className="mt-20 items-center">
+              <MaterialIcons name="inbox" size={52} color="#d1d5db" />
+              <Text className="mt-3 text-sm font-semibold text-gray-400">대기 중인 신청이 없어요</Text>
+            </View>
+          }
+          renderItem={({item}) => {
+            const isLoading = actionLoading === item.applicationIdx;
+            return (
+              <View className="mb-3 rounded-2xl bg-white px-4 py-4"
+                style={{elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: {width: 0, height: 1}}}>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center" style={{gap: 8}}>
+                    <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
+                      <MaterialIcons name="person" size={20} color="#9ca3af" />
+                    </View>
+                    <View>
+                      <Text className="text-sm font-bold text-gray-900">멤버 #{item.userIdx}</Text>
+                      <Text className="text-xs text-gray-400">{item.createDt.slice(0, 10)}</Text>
+                    </View>
+                  </View>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#f97316" />
+                  ) : (
+                    <View className="flex-row" style={{gap: 8}}>
+                      <TouchableOpacity
+                        onPress={() => handleReject(item.applicationIdx)}
+                        className="items-center rounded-xl bg-gray-100 px-4 py-2">
+                        <Text className="text-xs font-bold text-gray-500">거절</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleApprove(item.applicationIdx)}
+                        className="items-center rounded-xl bg-orange-500 px-4 py-2">
+                        <Text className="text-xs font-bold text-white">승인</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+                {item.message ? (
+                  <View className="mt-3 rounded-xl bg-gray-50 px-3 py-2">
+                    <Text className="text-xs leading-5 text-gray-600">"{item.message}"</Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          }}
+        />
+      ) : (
+        /* ── 멤버 탭 ── */
+        <FlatList
+          data={members}
+          keyExtractor={item => String(item.groupMemberIdx)}
+          contentContainerStyle={{padding: 16, paddingBottom: 24}}
+          ListHeaderComponent={
+            <Text className="mb-3 text-xs font-semibold text-gray-400">전체 {members.length}명</Text>
+          }
+          renderItem={({item}) => {
+            const isMe = item.userIdx === myUserIdx;
+            const rc = ROLE_COLOR[item.role];
+            const showActions = role === 'OWNER' && canActOn(item);
+            const showKickOnly = role === 'MANAGER' && canActOn(item);
+            return (
+              <View className="mb-2 flex-row items-center rounded-2xl bg-white px-4 py-3"
+                style={{elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: {width: 0, height: 1}}}>
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
+                  <MaterialIcons name="person" size={20} color="#9ca3af" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <View className="flex-row items-center" style={{gap: 6}}>
+                    <Text className="text-sm font-bold text-gray-900">
+                      {isMe ? '나' : `멤버 #${item.userIdx}`}
+                    </Text>
+                    <View className="rounded-full px-2 py-0.5" style={{backgroundColor: rc.bg}}>
+                      <Text className="text-xs font-bold" style={{color: rc.text}}>
+                        {ROLE_LABEL[item.role]}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="mt-0.5 text-xs text-gray-400">
+                    {item.createDt.slice(0, 10)} 가입
+                  </Text>
+                </View>
+                {(showActions || showKickOnly) && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (showActions) {
+                        Alert.alert(
+                          `멤버 #${item.userIdx}`,
+                          '작업을 선택하세요',
+                          [
+                            {text: '취소', style: 'cancel'},
+                            {
+                              text: item.role === 'MEMBER' ? '운영진으로 변경' : '회원으로 변경',
+                              onPress: () => handleRoleChange(item),
+                            },
+                            {text: '강퇴', style: 'destructive', onPress: () => handleKick(item)},
+                          ],
+                        );
+                      } else {
+                        handleKick(item);
+                      }
+                    }}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    <MaterialIcons name="more-vert" size={20} color="#9ca3af" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          }}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
 type Props = {
   group: Group;
   onBack: () => void;
@@ -855,12 +1156,14 @@ type Props = {
 export default function GroupDetailScreen({group, onBack}: Props) {
   const {updateGroup} = useGroups();
   const {sidoList} = useAreas();
+  const {user} = useUser();
 
   const {role, isLeader} = group;
+  const myUserIdx = user ? Number(user.id) : 0;
 
   const [activeTab, setActiveTab] = useState<TabType>('게시판');
   const [showMenu, setShowMenu] = useState(false);
-  const TABS: TabType[] = ['게시판', '채팅', '모임'];
+  const [showMemberMgmt, setShowMemberMgmt] = useState(false);
 
   // ── 모임 정보 수정 ─────────────────────────────────────
   const [showEditModal, setShowEditModal] = useState(false);
@@ -895,6 +1198,20 @@ export default function GroupDetailScreen({group, onBack}: Props) {
   const editCanSave =
     editName.trim().length >= 2 && editRegion && editMembersValid &&
     editMaxOperators !== '' && !editOpOver;
+
+  // ── 멤버 관리 화면 인라인 전환 (훅 선언 이후에 위치) ──
+  if (showMemberMgmt && group.groupIdx && (role === 'OWNER' || role === 'MANAGER')) {
+    return (
+      <MemberManagementScreen
+        groupIdx={group.groupIdx}
+        role={role}
+        myUserIdx={myUserIdx}
+        onBack={() => setShowMemberMgmt(false)}
+      />
+    );
+  }
+
+  const TABS: TabType[] = ['게시판', '채팅', '모임'];
 
   const openEditModal = () => {
     setEditName(group.name);
@@ -1039,7 +1356,7 @@ export default function GroupDetailScreen({group, onBack}: Props) {
                 {/* 멤버 관리 — OWNER, MANAGER */}
                 {(role === 'OWNER' || role === 'MANAGER') && (
                   <TouchableOpacity
-                    onPress={() => setShowMenu(false)}
+                    onPress={() => { setShowMenu(false); setShowMemberMgmt(true); }}
                     className="flex-row items-center px-6 py-4"
                     style={{gap: 14}}>
                     <MaterialIcons name="group" size={22} color="#374151" />

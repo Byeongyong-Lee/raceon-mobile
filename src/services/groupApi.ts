@@ -1,7 +1,7 @@
 import Config from 'react-native-config';
 import {apiFetch} from './apiClient';
 import {tokenStorage} from './tokenStorage';
-import {GroupResponse} from '../types';
+import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole} from '../types';
 
 const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
@@ -124,6 +124,66 @@ export async function updateGroupApi(groupIdx: number, params: UpdateGroupApiPar
       xhr.send(formData);
     });
   }
+}
+
+// ── 멤버 목록 ─────────────────────────────────────────────
+export async function fetchGroupMembers(groupIdx: number): Promise<GroupMemberItem[]> {
+  const json = await apiFetch<ApiResult<GroupMemberItem[]>>(`/api/groups/${groupIdx}/members`);
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data ?? [];
+}
+
+// ── 가입 신청 목록 ────────────────────────────────────────
+export async function fetchGroupApplications(
+  groupIdx: number,
+  status?: ApplicationStatus,
+): Promise<ApplicationItem[]> {
+  const qs = status ? `?status=${status}` : '';
+  const json = await apiFetch<ApiResult<ApplicationItem[]>>(
+    `/api/groups/${groupIdx}/applications${qs}`,
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+  return json.data ?? [];
+}
+
+// ── 가입 신청 승인 ────────────────────────────────────────
+export async function approveApplication(groupIdx: number, applicationIdx: number): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/applications/${applicationIdx}/approve`,
+    {method: 'POST'},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+// ── 가입 신청 거절 ────────────────────────────────────────
+export async function rejectApplication(groupIdx: number, applicationIdx: number): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/applications/${applicationIdx}/reject`,
+    {method: 'POST'},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+// ── 멤버 강퇴 ─────────────────────────────────────────────
+export async function kickMember(groupIdx: number, targetUserIdx: number): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/members/${targetUserIdx}`,
+    {method: 'DELETE'},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
+}
+
+// ── 역할 변경 ─────────────────────────────────────────────
+export async function changeMemberRole(
+  groupIdx: number,
+  targetUserIdx: number,
+  role: GroupRole,
+): Promise<void> {
+  const json = await apiFetch<ApiResult<null>>(
+    `/api/groups/${groupIdx}/members/${targetUserIdx}/role`,
+    {method: 'PATCH', body: JSON.stringify({role})},
+  );
+  if (!json.success) throw new Error(json.message ?? '서버 오류');
 }
 
 // ── 가입 신청 ─────────────────────────────────────────────

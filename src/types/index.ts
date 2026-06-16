@@ -49,6 +49,25 @@ export type GroupResponse = {
   memberCount: number;
 };
 
+export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type GroupMemberItem = {
+  groupMemberIdx: number;
+  userIdx: number;
+  role: GroupRole;
+  createDt: string;
+};
+
+export type ApplicationItem = {
+  applicationIdx: number;
+  groupIdx: number;
+  userIdx: number;
+  message: string | null;
+  status: ApplicationStatus;
+  processedBy: number | null;
+  createDt: string;
+};
+
 export type Area = {
   areaIdx: number;
   areaCode: string;  // 시도 2자리 / 시군구 5자리 / 읍면동 8자리
