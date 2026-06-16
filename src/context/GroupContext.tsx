@@ -1,7 +1,7 @@
 import React, {createContext, useContext, useEffect, useRef, useState} from 'react';
 import Config from 'react-native-config';
 import {GroupResponse, GroupRole} from '../types';
-import {fetchGroups, fetchMyGroups, createGroupApi, updateGroupApi, applyGroupApi, leaveGroupApi} from '../services/groupApi';
+import {fetchGroups, fetchMyGroups, createGroupApi, updateGroupApi, applyGroupApi, leaveGroupApi, deleteGroupApi} from '../services/groupApi';
 import {areaCodeToLabel, labelToAreaCode} from '../constants/regions';
 import {useUser} from './UserContext';
 
@@ -51,6 +51,7 @@ type GroupContextType = {
   createGroup: (params: CreateGroupParams) => Promise<void>;
   updateGroup: (params: UpdateGroupParams) => Promise<void>;
   leaveGroup: (groupIdx: number) => Promise<void>;
+  deleteGroup: (groupIdx: number) => Promise<void>;
   refreshMyGroups: () => Promise<void>;
   searchGroups: (params?: SearchGroupsParams) => Promise<void>;
 };
@@ -64,6 +65,7 @@ const GroupContext = createContext<GroupContextType>({
   createGroup: async _p => {},
   updateGroup: async _p => {},
   leaveGroup: async _p => {},
+  deleteGroup: async _p => {},
   refreshMyGroups: async () => {},
   searchGroups: async () => {},
 });
@@ -380,6 +382,13 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
     }
   };
 
+  // ── 모임 삭제 ───────────────────────────────────────────
+  const deleteGroup = async (groupIdx: number) => {
+    await deleteGroupApi(groupIdx);
+    setMyGroups(prev => prev.filter(g => g.groupIdx !== groupIdx));
+    setGroups(prev => prev.filter(g => g.groupIdx !== groupIdx));
+  };
+
   // ── 모임 탈퇴 ───────────────────────────────────────────
   const leaveGroup = async (groupIdx: number) => {
     await leaveGroupApi(groupIdx);
@@ -402,6 +411,7 @@ export function GroupProvider({children}: {children: React.ReactNode}) {
         createGroup,
         updateGroup,
         leaveGroup,
+        deleteGroup,
         refreshMyGroups: loadMyGroups,
         searchGroups: loadGroups,
       }}>

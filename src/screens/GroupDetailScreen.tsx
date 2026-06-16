@@ -1154,7 +1154,7 @@ type Props = {
 };
 
 export default function GroupDetailScreen({group, onBack}: Props) {
-  const {updateGroup, leaveGroup} = useGroups();
+  const {updateGroup, leaveGroup, deleteGroup} = useGroups();
   const {sidoList} = useAreas();
   const {user} = useUser();
 
@@ -1306,7 +1306,19 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       `'${group.name}' 모임을 삭제하시겠어요?\n삭제 후에는 복구할 수 없어요.`,
       [
         {text: '취소', style: 'cancel'},
-        {text: '삭제', style: 'destructive', onPress: () => onBack()},
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            if (!group.groupIdx) { onBack(); return; }
+            try {
+              await deleteGroup(group.groupIdx);
+              onBack();
+            } catch (e: any) {
+              Alert.alert('오류', e.message ?? '삭제에 실패했어요.');
+            }
+          },
+        },
       ],
     );
   };
