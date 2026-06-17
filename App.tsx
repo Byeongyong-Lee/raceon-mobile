@@ -1,8 +1,9 @@
 import './global.css';
 import {NavigationContainer} from '@react-navigation/native';
-import React from 'react';
-import {ActivityIndicator, StatusBar, View} from 'react-native';
+import React, {useEffect} from 'react';
+import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import BootSplash from 'react-native-bootsplash';
 import {AreaProvider} from './src/context/AreaContext';
 import {GroupProvider} from './src/context/GroupContext';
 import {UserProvider, useUser} from './src/context/UserContext';
@@ -11,12 +12,14 @@ import RootNavigator from './src/navigation/RootNavigator';
 function AppContent() {
   const {isReady} = useUser();
 
+  useEffect(() => {
+    if (isReady) {
+      BootSplash.hide({fade: true});
+    }
+  }, [isReady]);
+
   if (!isReady) {
-    return (
-      <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb'}}>
-        <ActivityIndicator size="large" color="#f97316" />
-      </View>
-    );
+    return null; // 네이티브 스플래시가 덮고 있으므로 빈 화면
   }
 
   return (

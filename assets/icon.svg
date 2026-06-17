@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Orange rounded background -->
+  <rect width="1024" height="1024" rx="220" fill="#f97316"/>
+
+  <!-- Running figure (white, centered, scaled up) -->
+  <!-- Head -->
+  <circle cx="716" cy="164" r="97" fill="white"/>
+
+  <!-- Torso (leaning ~20° forward) -->
+  <line x1="664" y1="256" x2="541" y2="553"
+        stroke="white" stroke-width="92" stroke-linecap="round"/>
+
+  <!-- Right arm — raised back -->
+  <line x1="635" y1="358" x2="808" y2="215"
+        stroke="white" stroke-width="71" stroke-linecap="round"/>
+
+  <!-- Left arm — swinging forward -->
+  <line x1="614" y1="379" x2="409" y2="543"
+        stroke="white" stroke-width="71" stroke-linecap="round"/>
+
+  <!-- Right leg — back, bent at knee (thigh) -->
+  <line x1="563" y1="563" x2="696" y2="420"
+        stroke="white" stroke-width="82" stroke-linecap="round"/>
+  <!-- Right leg — calf -->
+  <line x1="696" y1="420" x2="798" y2="614"
+        stroke="white" stroke-width="82" stroke-linecap="round"/>
+
+  <!-- Left leg — front, extended (thigh) -->
+  <line x1="541" y1="583" x2="348" y2="757"
+        stroke="white" stroke-width="82" stroke-linecap="round"/>
+  <!-- Left leg — shin -->
+  <line x1="348" y1="757" x2="225" y2="900"
+        stroke="white" stroke-width="82" stroke-linecap="round"/>
+
+  <!-- Speed / motion lines -->
+  <line x1="51"  y1="471" x2="276" y2="471"
+        stroke="white" stroke-width="51" stroke-linecap="round" opacity="0.85"/>
+  <line x1="31"  y1="583" x2="225" y2="583"
+        stroke="white" stroke-width="41" stroke-linecap="round" opacity="0.55"/>
+  <line x1="72"  y1="686" x2="215" y2="686"
+        stroke="white" stroke-width="31" stroke-linecap="round" opacity="0.30"/>
+</svg>

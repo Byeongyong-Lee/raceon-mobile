@@ -26,6 +26,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **@react-native-async-storage/async-storage**: JWT 토큰 영구 저장
 - **react-native-image-picker**: 갤러리에서 이미지 선택 (기록증 업로드)
 - **@stomp/stompjs**: STOMP over WebSocket 클라이언트 — 모임 채팅 실시간 송수신
+- **react-native-bootsplash**: 앱 아이콘 및 스플래시 스크린 관리 — 네이티브 splash 표시 후 JS에서 `BootSplash.hide()` 호출로 제거
 
 ## 프로젝트 구조
 
@@ -70,6 +71,10 @@ raceon-mobile/
 │   │   └── index.ts                 # 공유 타입 (Race, UserRace, Group, Meetup, ChatMessage, BoardPost 등)
 │   └── utils/
 │       └── race.ts                  # 날짜 유틸 함수 (getDdayLabel 등)
+├── assets/
+│   ├── logo.svg                     # 스플래시 스크린 로고 (흰 러너, 투명 배경)
+│   ├── icon.svg                     # 앱 아이콘 소스 (주황 배경 + 흰 러너, 1024x1024)
+│   └── bootsplash/                  # bootsplash generate 산출물 (manifest + 해상도별 PNG)
 ├── android/                         # Android 네이티브 코드
 ├── ios/                             # iOS 네이티브 코드
 └── __tests__/                       # 테스트 파일
