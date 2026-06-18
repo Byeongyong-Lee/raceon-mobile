@@ -27,6 +27,7 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **react-native-image-picker**: 갤러리에서 이미지 선택 (기록증 업로드)
 - **@stomp/stompjs**: STOMP over WebSocket 클라이언트 — 모임 채팅 실시간 송수신
 - **react-native-bootsplash**: 앱 아이콘 및 스플래시 스크린 관리 — 네이티브 splash 표시 후 JS에서 `BootSplash.hide()` 호출로 제거
+- **react-native-fast-image**: 크로스플랫폼 이미지/GIF 렌더링 — 애니메이션 스플래시(run.gif) 재생에 사용
 
 ## 프로젝트 구조
 
@@ -38,6 +39,7 @@ raceon-mobile/
 │   ├── components/
 │   │   ├── AdSlider.tsx             # 광고 배너 슬라이더
 │   │   ├── CourseBadges.tsx         # 코스 배지 (RaceCard·RaceDetail 공유)
+│   │   ├── SplashAnimation.tsx      # GIF 애니메이션 스플래시 (run.gif 재생 후 onFinish 콜백)
 │   │   ├── LoginSheet.tsx           # 소셜 로그인 바텀시트
 │   │   ├── RaceCard.tsx             # 대회 카드
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
