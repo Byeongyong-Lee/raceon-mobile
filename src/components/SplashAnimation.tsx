@@ -17,7 +17,7 @@ export default function SplashAnimation({onFinish}: Props) {
   return (
     <View style={styles.container}>
       <FastImage
-        source={require('../../assets/run.gif')}
+        source={require('../../assets/splash.gif')}
         style={styles.gif}
         resizeMode={FastImage.resizeMode.contain}
       />
