@@ -34,6 +34,7 @@
     "react-native-config": "^1.6.1",
     "react-native-fast-image": "^8.6.3",
     "react-native-image-picker": "^8.2.1",
+    "react-native-reanimated": "^4.4.1",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.25.2",
     "react-native-svg": "^15.15.5",
