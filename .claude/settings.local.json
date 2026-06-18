@@ -4,7 +4,21 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(./gradlew app:assembleDebug)",
-      "Bash(./gradlew app:installDebug)"
+      "Bash(./gradlew app:installDebug)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(xargs cat:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npx react-native-bootsplash:*)",
+      "Bash(npx sharp-cli:*)",
+      "Bash(node -e ':*)",
+      "Bash(cp \"E:/workspace/run.gif\" assets/run.gif)",
+      "Bash(cp \"E:/workspace/raceon-logo.svg\" assets/icon.svg)",
+      "Bash(cp \"E:/workspace/splash.gif\" assets/splash.gif)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/react-native-reanimated/package.json'\\).version\\)\")",
+      "Bash(npm uninstall:*)"
     ]
   }
 }
