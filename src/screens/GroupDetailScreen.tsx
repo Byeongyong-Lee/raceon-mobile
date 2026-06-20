@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -277,7 +278,10 @@ function BoardTab({
   const [editingPost, setEditingPost] = useState<BoardPost | null>(null);
   const [modalTitle, setModalTitle] = useState('');
   const [modalContent, setModalContent] = useState('');
+  const [modalIsNotice, setModalIsNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const canManage = role === 'OWNER' || role === 'MANAGER';
 
   const loadPosts = async (pageNum: number) => {
     try {
@@ -306,6 +310,7 @@ function BoardTab({
     setEditingPost(null);
     setModalTitle('');
     setModalContent('');
+    setModalIsNotice(false);
     setShowWriteModal(true);
   };
 
@@ -313,6 +318,7 @@ function BoardTab({
     setEditingPost(post);
     setModalTitle(post.title);
     setModalContent(post.content);
+    setModalIsNotice(post.isNotice === 'Y');
     setShowWriteModal(true);
   };
 
@@ -327,7 +333,12 @@ function BoardTab({
         if (selectedPost?.boardIdx === editingPost.boardIdx) setSelectedPost(updated);
       } else {
         const created = await createBoardPost(groupIdx, modalTitle.trim(), modalContent.trim());
-        setPosts(prev => [created, ...prev]);
+        if (modalIsNotice) {
+          await toggleBoardNotice(groupIdx, created.boardIdx, 'Y');
+          setPosts(prev => [{...created, isNotice: 'Y'}, ...prev]);
+        } else {
+          setPosts(prev => [created, ...prev]);
+        }
       }
       setShowWriteModal(false);
     } catch (e: any) {
@@ -507,6 +518,20 @@ function BoardTab({
               textAlignVertical="top"
               className="flex-1 px-4 py-4 text-sm text-gray-700"
             />
+            {canManage && (
+              <View className="flex-row items-center justify-between border-t border-gray-100 px-4 py-3">
+                <View className="flex-row items-center" style={{gap: 8}}>
+                  <MaterialIcons name="campaign" size={18} color="#f97316" />
+                  <Text className="text-sm font-semibold text-gray-700">공지로 등록</Text>
+                </View>
+                <Switch
+                  value={modalIsNotice}
+                  onValueChange={setModalIsNotice}
+                  trackColor={{false: '#e5e7eb', true: '#fdba74'}}
+                  thumbColor={modalIsNotice ? '#f97316' : '#f9fafb'}
+                />
+              </View>
+            )}
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
