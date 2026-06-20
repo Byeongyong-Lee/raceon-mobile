@@ -161,7 +161,7 @@ function PostDetailView({
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         className="flex-1">
         <ScrollView contentContainerStyle={{paddingBottom: 16}} showsVerticalScrollIndicator={false}>
           {/* 게시글 본문 */}
@@ -709,7 +709,7 @@ function ChatTab({groupIdx, myUserIdx}: {groupIdx: number; myUserIdx: number}) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       className="flex-1">
       {!connected && (
         <View
@@ -1165,7 +1165,7 @@ function MeetingTab({
           </View>
 
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior="padding"
             className="flex-1">
             <ScrollView
               contentContainerStyle={{padding: 20, paddingBottom: 40}}
@@ -1907,7 +1907,7 @@ export default function GroupDetailScreen({group, onBack}: Props) {
           </View>
 
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior="padding"
             className="flex-1">
             <ScrollView
               contentContainerStyle={{padding: 20, paddingBottom: 40}}
