@@ -5,6 +5,7 @@ import {tokenStorage} from '../services/tokenStorage';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -17,6 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {launchImageLibrary} from 'react-native-image-picker';
@@ -480,10 +483,11 @@ function BoardTab({
         animationType="slide"
         transparent
         onRequestClose={() => setShowWriteModal(false)}>
-        <View className="flex-1">
+        <View className="flex-1 justify-end">
           {/* 배경 터치로 닫기 */}
           <TouchableOpacity
-            className="flex-1 bg-black/50"
+            style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0}}
+            className="bg-black/50"
             activeOpacity={1}
             onPress={() => setShowWriteModal(false)}
           />
@@ -491,7 +495,7 @@ function BoardTab({
           <SafeAreaView
             edges={['bottom']}
             className="rounded-t-3xl bg-gray-50"
-            style={{maxHeight: '88%'}}>
+            style={{height: SCREEN_HEIGHT * 0.82}}>
             {/* 드래그 핸들 */}
             <View className="items-center pb-1 pt-3">
               <View className="h-1 w-10 rounded-full bg-gray-300" />
