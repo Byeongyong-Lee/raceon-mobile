@@ -5,6 +5,8 @@ import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {useUser} from '../context/UserContext';
+import {useLogin} from '../hooks/useLogin';
+import LoginSheet from '../components/LoginSheet';
 import {RootStackParamList} from '../navigation/RootNavigator';
 import {Race, UserRace} from '../types';
 import {formatDate, getDdayLabel} from '../utils/race';
@@ -25,8 +27,10 @@ function userRaceToRace(ur: UserRace): Race {
 }
 
 export default function MyRacesScreen() {
-  const {myRaces, removeMyRace} = useUser();
+  const {user, myRaces, removeMyRace} = useUser();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [showLoginSheet, setShowLoginSheet] = useState(false);
+  const {handleLogin} = useLogin(() => setShowLoginSheet(false));
 
   const years = useMemo(() => {
     const set = new Set(myRaces.map(r => r.raceDate.slice(0, 4)));
@@ -77,7 +81,19 @@ export default function MyRacesScreen() {
         </View>
       )}
 
-      {myRaces.length === 0 ? (
+      {!user ? (
+        <View className="flex-1 items-center justify-center">
+          <MaterialIcons name="emoji-events" size={48} color="#d1d5db" />
+          <Text className="mt-4 text-base font-semibold text-gray-400">
+            로그인이 필요해요
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowLoginSheet(true)}
+            className="mt-3 rounded-full bg-orange-500 px-6 py-2">
+            <Text className="text-sm font-bold text-white">로그인하기</Text>
+          </TouchableOpacity>
+        </View>
+      ) : myRaces.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <MaterialIcons name="emoji-events" size={48} color="#d1d5db" />
           <Text className="mt-4 text-base font-semibold text-gray-400">
@@ -148,6 +164,12 @@ export default function MyRacesScreen() {
           }}
         />
       )}
+
+      <LoginSheet
+        visible={showLoginSheet}
+        onClose={() => setShowLoginSheet(false)}
+        onLogin={handleLogin}
+      />
     </SafeAreaView>
   );
 }

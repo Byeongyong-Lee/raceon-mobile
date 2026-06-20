@@ -17,13 +17,19 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {useGroups} from '../context/GroupContext';
+import {useUser} from '../context/UserContext';
+import {useLogin} from '../hooks/useLogin';
 import {useAreas} from '../context/AreaContext';
 import {toShortLabel} from '../constants/regions';
+import LoginSheet from '../components/LoginSheet';
 import GroupDetailScreen from './GroupDetailScreen';
 
 export default function CommunityScreen() {
   const {myGroups, myGroupsLoading, createGroup} = useGroups();
+  const {user} = useUser();
   const {sidoList} = useAreas();
+  const [showLoginSheet, setShowLoginSheet] = useState(false);
+  const {handleLogin} = useLogin(() => setShowLoginSheet(false));
 
   const joinedGroups = myGroups.filter(g => g.status === 'joined');
   const pendingGroups = myGroups.filter(g => g.status === 'pending');
@@ -102,6 +108,11 @@ export default function CommunityScreen() {
   };
 
   const handleCreate = async () => {
+    if (!user) {
+      setShowCreateModal(false);
+      setShowLoginSheet(true);
+      return;
+    }
     setSubmitted(true);
     if (!canCreate || creating) return;
     setCreating(true);
@@ -151,13 +162,28 @@ export default function CommunityScreen() {
         </View>
       ) : isEmpty ? (
         <View className="flex-1 items-center justify-center">
-          <MaterialIcons name="groups" size={56} color="#d1d5db" />
-          <Text className="mt-4 text-base font-semibold text-gray-400">
-            참가한 모임이 없어요
-          </Text>
-          <Text className="mt-1 text-sm text-gray-400">
-            모임 만들기로 시작해보세요
-          </Text>
+          <MaterialIcons name={user ? 'groups' : 'forum'} size={56} color="#d1d5db" />
+          {user ? (
+            <>
+              <Text className="mt-4 text-base font-semibold text-gray-400">
+                참가한 모임이 없어요
+              </Text>
+              <Text className="mt-1 text-sm text-gray-400">
+                모임 만들기로 시작해보세요
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text className="mt-4 text-base font-semibold text-gray-400">
+                로그인이 필요해요
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowLoginSheet(true)}
+                className="mt-3 rounded-full bg-orange-500 px-6 py-2">
+                <Text className="text-sm font-bold text-white">로그인하기</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : (
         <FlatList
@@ -558,13 +584,21 @@ export default function CommunityScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* 모임 만들기 FAB */}
-      <TouchableOpacity
-        onPress={() => setShowCreateModal(true)}
-        className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-orange-500"
-        style={{elevation: 4, shadowColor: '#f97316', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: {width: 0, height: 4}}}>
-        <MaterialIcons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      {/* 모임 만들기 FAB — 로그인 시에만 노출 */}
+      {user && (
+        <TouchableOpacity
+          onPress={() => setShowCreateModal(true)}
+          className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-orange-500"
+          style={{elevation: 4, shadowColor: '#f97316', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: {width: 0, height: 4}}}>
+          <MaterialIcons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      <LoginSheet
+        visible={showLoginSheet}
+        onClose={() => setShowLoginSheet(false)}
+        onLogin={handleLogin}
+      />
 
     </SafeAreaView>
   );
