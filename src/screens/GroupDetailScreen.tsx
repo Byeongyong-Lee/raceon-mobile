@@ -475,65 +475,99 @@ function BoardTab({
       )}
 
       {/* 글쓰기/수정 모달 */}
-      <Modal visible={showWriteModal} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView edges={['top']} className="flex-1 bg-white">
-          <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
-            <TouchableOpacity onPress={() => setShowWriteModal(false)}>
-              <Text className="text-base text-gray-500">취소</Text>
-            </TouchableOpacity>
-            <Text className="text-base font-bold text-gray-900">
-              {editingPost ? '게시글 수정' : '새 글 작성'}
-            </Text>
-            <TouchableOpacity onPress={handleSubmitPost} disabled={submitting}>
-              {submitting ? (
-                <ActivityIndicator size="small" color="#f97316" />
-              ) : (
-                <Text
-                  className="text-base font-bold"
-                  style={{
-                    color: modalTitle.trim() && modalContent.trim() ? '#f97316' : '#fed7aa',
-                  }}>
-                  {editingPost ? '수정' : '등록'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            className="flex-1">
-            <TextInput
-              value={modalTitle}
-              onChangeText={setModalTitle}
-              placeholder="제목을 입력하세요"
-              placeholderTextColor="#9ca3af"
-              className="border-b border-gray-100 px-4 py-4 text-base font-semibold text-gray-900"
-              maxLength={100}
-            />
-            <TextInput
-              value={modalContent}
-              onChangeText={setModalContent}
-              placeholder="내용을 입력하세요"
-              placeholderTextColor="#9ca3af"
-              multiline
-              textAlignVertical="top"
-              className="flex-1 px-4 py-4 text-sm text-gray-700"
-            />
-            {canManage && (
-              <View className="flex-row items-center justify-between border-t border-gray-100 px-4 py-3">
-                <View className="flex-row items-center" style={{gap: 8}}>
-                  <MaterialIcons name="campaign" size={18} color="#f97316" />
-                  <Text className="text-sm font-semibold text-gray-700">공지로 등록</Text>
+      <Modal
+        visible={showWriteModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowWriteModal(false)}>
+        <View className="flex-1">
+          {/* 배경 터치로 닫기 */}
+          <TouchableOpacity
+            className="flex-1 bg-black/50"
+            activeOpacity={1}
+            onPress={() => setShowWriteModal(false)}
+          />
+          {/* 바텀시트 */}
+          <SafeAreaView
+            edges={['bottom']}
+            className="rounded-t-3xl bg-gray-50"
+            style={{maxHeight: '88%'}}>
+            {/* 드래그 핸들 */}
+            <View className="items-center pb-1 pt-3">
+              <View className="h-1 w-10 rounded-full bg-gray-300" />
+            </View>
+            {/* 헤더 */}
+            <View className="flex-row items-center justify-between px-4 py-3">
+              <TouchableOpacity onPress={() => setShowWriteModal(false)}>
+                <MaterialIcons name="close" size={22} color="#6b7280" />
+              </TouchableOpacity>
+              <Text className="text-base font-bold text-gray-900">
+                {editingPost ? '게시글 수정' : '새 글 작성'}
+              </Text>
+              <TouchableOpacity
+                onPress={handleSubmitPost}
+                disabled={submitting || !modalTitle.trim() || !modalContent.trim()}
+                className="rounded-full bg-orange-500 px-4 py-1.5"
+                style={{opacity: modalTitle.trim() && modalContent.trim() ? 1 : 0.35}}>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text className="text-sm font-bold text-white">
+                    {editingPost ? '수정' : '등록'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              className="flex-1">
+              <ScrollView
+                className="flex-1"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{paddingBottom: 24}}>
+                {/* 제목 */}
+                <View className="mx-4 mt-1 rounded-2xl bg-white px-4 py-4">
+                  <TextInput
+                    value={modalTitle}
+                    onChangeText={setModalTitle}
+                    placeholder="제목을 입력하세요"
+                    placeholderTextColor="#9ca3af"
+                    className="text-base font-semibold text-gray-900"
+                    maxLength={100}
+                  />
                 </View>
-                <Switch
-                  value={modalIsNotice}
-                  onValueChange={setModalIsNotice}
-                  trackColor={{false: '#e5e7eb', true: '#fdba74'}}
-                  thumbColor={modalIsNotice ? '#f97316' : '#f9fafb'}
-                />
-              </View>
-            )}
-          </KeyboardAvoidingView>
-        </SafeAreaView>
+                {/* 내용 */}
+                <View className="mx-4 mt-2 rounded-2xl bg-white px-4 py-4">
+                  <TextInput
+                    value={modalContent}
+                    onChangeText={setModalContent}
+                    placeholder="내용을 입력하세요"
+                    placeholderTextColor="#9ca3af"
+                    multiline
+                    textAlignVertical="top"
+                    className="text-sm text-gray-700"
+                    style={{minHeight: 140}}
+                  />
+                </View>
+                {/* 공지 토글 - 새 글 작성 + OWNER/MANAGER만 */}
+                {!editingPost && canManage && (
+                  <View className="mx-4 mt-2 flex-row items-center justify-between rounded-2xl bg-white px-4 py-3.5">
+                    <View className="flex-row items-center" style={{gap: 8}}>
+                      <MaterialIcons name="campaign" size={18} color="#f97316" />
+                      <Text className="text-sm font-semibold text-gray-700">공지로 등록</Text>
+                    </View>
+                    <Switch
+                      value={modalIsNotice}
+                      onValueChange={setModalIsNotice}
+                      trackColor={{false: '#e5e7eb', true: '#fdba74'}}
+                      thumbColor={modalIsNotice ? '#f97316' : '#f9fafb'}
+                    />
+                  </View>
+                )}
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </View>
       </Modal>
     </View>
   );
