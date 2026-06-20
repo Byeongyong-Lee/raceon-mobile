@@ -4,7 +4,6 @@ import Config from 'react-native-config';
 import {tokenStorage} from '../services/tokenStorage';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -18,9 +17,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {Group, useGroups} from '../context/GroupContext';
@@ -51,6 +50,9 @@ import {
   fetchMeetupParticipants,
 } from '../services/groupApi';
 import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, ChatMessage, Meetup, MeetupParticipant, MeetupStatus} from '../types';
+import {AppToast} from '../components/AppToast';
+import {AppConfirmModal} from '../components/AppConfirmModal';
+import {AppActionSheet, SheetOption} from '../components/AppActionSheet';
 
 type TabType = '게시판' | '채팅' | '모임';
 
@@ -81,6 +83,10 @@ function PostDetailView({
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentInput, setCommentInput] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [deleteCommentTarget, setDeleteCommentTarget] = useState<BoardComment | null>(null);
+  const [postMenuVisible, setPostMenuVisible] = useState(false);
+  const [postMenuOptions, setPostMenuOptions] = useState<SheetOption[]>([]);
 
   const isAuthor = post.authorIdx === myUserIdx;
   const canManage = role === 'OWNER' || role === 'MANAGER';
@@ -100,32 +106,30 @@ function PostDetailView({
       setComments(prev => [...prev, created]);
       setCommentInput('');
     } catch (e: any) {
-      Alert.alert('오류', e.message);
+      setToastMsg(e.message ?? '댓글 등록에 실패했어요.');
     } finally {
       setSubmittingComment(false);
     }
   };
 
   const handleDeleteComment = (comment: BoardComment) => {
-    Alert.alert('댓글 삭제', '이 댓글을 삭제하시겠어요?', [
-      {text: '취소', style: 'cancel'},
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteBoardComment(groupIdx, post.boardIdx, comment.commentIdx);
-            setComments(prev => prev.filter(c => c.commentIdx !== comment.commentIdx));
-          } catch (e: any) {
-            Alert.alert('오류', e.message);
-          }
-        },
-      },
-    ]);
+    setDeleteCommentTarget(comment);
+  };
+
+  const confirmDeleteComment = async () => {
+    if (!deleteCommentTarget) return;
+    try {
+      await deleteBoardComment(groupIdx, post.boardIdx, deleteCommentTarget.commentIdx);
+      setComments(prev => prev.filter(c => c.commentIdx !== deleteCommentTarget.commentIdx));
+    } catch (e: any) {
+      setToastMsg(e.message ?? '삭제에 실패했어요.');
+    } finally {
+      setDeleteCommentTarget(null);
+    }
   };
 
   const showPostMenu = () => {
-    const options: Array<{text: string; onPress?: () => void; style?: 'cancel' | 'destructive' | 'default'}> = [];
+    const options: SheetOption[] = [];
     if (isAuthor) options.push({text: '수정', onPress: onEdit});
     if (canManage) options.push({
       text: post.isNotice === 'Y' ? '공지 해제' : '공지 설정',
@@ -133,7 +137,8 @@ function PostDetailView({
     });
     if (isAuthor || canManage) options.push({text: '삭제', style: 'destructive', onPress: onDelete});
     options.push({text: '취소', style: 'cancel'});
-    Alert.alert('게시글 관리', undefined, options);
+    setPostMenuOptions(options);
+    setPostMenuVisible(true);
   };
 
   return (
@@ -255,6 +260,21 @@ function PostDetailView({
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <AppToast visible={!!toastMsg} message={toastMsg} onHide={() => setToastMsg('')} />
+      <AppConfirmModal
+        visible={!!deleteCommentTarget}
+        title="댓글 삭제"
+        message="이 댓글을 삭제하시겠어요?"
+        confirmText="삭제"
+        danger
+        onConfirm={confirmDeleteComment}
+        onCancel={() => setDeleteCommentTarget(null)}
+      />
+      <AppActionSheet
+        visible={postMenuVisible}
+        options={postMenuOptions}
+        onClose={() => setPostMenuVisible(false)}
+      />
     </View>
   );
 }
@@ -283,6 +303,8 @@ function BoardTab({
   const [modalContent, setModalContent] = useState('');
   const [modalIsNotice, setModalIsNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [boardToast, setBoardToast] = useState('');
+  const [deletePostTarget, setDeletePostTarget] = useState<BoardPost | null>(null);
 
   const canManage = role === 'OWNER' || role === 'MANAGER';
 
@@ -292,7 +314,7 @@ function BoardTab({
       setPosts(prev => (pageNum === 0 ? newPosts : [...prev, ...newPosts]));
       setIsLast(last);
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '게시글을 불러오지 못했어요.');
+      setBoardToast(e.message ?? '게시글을 불러오지 못했어요.');
     }
   };
 
@@ -345,29 +367,27 @@ function BoardTab({
       }
       setShowWriteModal(false);
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '실패했어요.');
+      setBoardToast(e.message ?? '실패했어요.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeletePost = (post: BoardPost) => {
-    Alert.alert('게시글 삭제', '이 게시글을 삭제하시겠어요?', [
-      {text: '취소', style: 'cancel'},
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteBoardPost(groupIdx, post.boardIdx);
-            setPosts(prev => prev.filter(p => p.boardIdx !== post.boardIdx));
-            if (selectedPost?.boardIdx === post.boardIdx) setSelectedPost(null);
-          } catch (e: any) {
-            Alert.alert('오류', e.message);
-          }
-        },
-      },
-    ]);
+    setDeletePostTarget(post);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deletePostTarget) return;
+    try {
+      await deleteBoardPost(groupIdx, deletePostTarget.boardIdx);
+      setPosts(prev => prev.filter(p => p.boardIdx !== deletePostTarget.boardIdx));
+      if (selectedPost?.boardIdx === deletePostTarget.boardIdx) setSelectedPost(null);
+    } catch (e: any) {
+      setBoardToast(e.message ?? '삭제에 실패했어요.');
+    } finally {
+      setDeletePostTarget(null);
+    }
   };
 
   const handleToggleNotice = async (post: BoardPost) => {
@@ -378,7 +398,7 @@ function BoardTab({
       setPosts(prev => prev.map(p => (p.boardIdx === post.boardIdx ? updated : p)));
       if (selectedPost?.boardIdx === post.boardIdx) setSelectedPost(updated);
     } catch (e: any) {
-      Alert.alert('오류', e.message);
+      setBoardToast(e.message ?? '실패했어요.');
     }
   };
 
@@ -573,6 +593,16 @@ function BoardTab({
           </SafeAreaView>
         </View>
       </Modal>
+      <AppToast visible={!!boardToast} message={boardToast} onHide={() => setBoardToast('')} />
+      <AppConfirmModal
+        visible={!!deletePostTarget}
+        title="게시글 삭제"
+        message="이 게시글을 삭제하시겠어요?"
+        confirmText="삭제"
+        danger
+        onConfirm={confirmDeletePost}
+        onCancel={() => setDeletePostTarget(null)}
+      />
     </View>
   );
 }
@@ -813,6 +843,9 @@ function MeetingTab({
   const [editingMeetup, setEditingMeetup] = useState<Meetup | null>(null);
   const [showParticipantsFor, setShowParticipantsFor] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [meetingToast, setMeetingToast] = useState('');
+  const [deleteMeetupTarget, setDeleteMeetupTarget] = useState<Meetup | null>(null);
+  const [meetupMenuTarget, setMeetupMenuTarget] = useState<Meetup | null>(null);
 
   // 폼
   const [formTitle, setFormTitle] = useState('');
@@ -843,7 +876,7 @@ function MeetingTab({
         setParticipantMap(map);
       }
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '데이터를 불러오지 못했어요.');
+      setMeetingToast(e.message ?? '데이터를 불러오지 못했어요.');
     } finally {
       setLoading(false);
     }
@@ -873,7 +906,7 @@ function MeetingTab({
         };
       });
     } catch (e: any) {
-      Alert.alert('오류', e.message);
+      setMeetingToast(e.message ?? '실패했어요.');
     }
   };
 
@@ -925,28 +958,26 @@ function MeetingTab({
       }
       setShowModal(false);
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '실패했어요.');
+      setMeetingToast(e.message ?? '실패했어요.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = (m: Meetup) => {
-    Alert.alert(`'${m.title}' 삭제`, '이 약속을 삭제하시겠어요?', [
-      {text: '취소', style: 'cancel'},
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteMeetup(groupIdx, m.meetupIdx);
-            setMeetups(prev => prev.filter(x => x.meetupIdx !== m.meetupIdx));
-          } catch (e: any) {
-            Alert.alert('오류', e.message);
-          }
-        },
-      },
-    ]);
+    setDeleteMeetupTarget(m);
+  };
+
+  const confirmDeleteMeetup = async () => {
+    if (!deleteMeetupTarget) return;
+    try {
+      await deleteMeetup(groupIdx, deleteMeetupTarget.meetupIdx);
+      setMeetups(prev => prev.filter(x => x.meetupIdx !== deleteMeetupTarget.meetupIdx));
+    } catch (e: any) {
+      setMeetingToast(e.message ?? '삭제에 실패했어요.');
+    } finally {
+      setDeleteMeetupTarget(null);
+    }
   };
 
   const canSubmit = formTitle.trim() && formDatetime.trim() && formLocation.trim();
@@ -1009,13 +1040,7 @@ function MeetingTab({
                   </Text>
                   {canManage && (
                     <TouchableOpacity
-                      onPress={() =>
-                        Alert.alert(item.title, undefined, [
-                          {text: '취소', style: 'cancel'},
-                          {text: '수정', onPress: () => openEdit(item)},
-                          {text: '삭제', style: 'destructive', onPress: () => handleDelete(item)},
-                        ])
-                      }
+                      onPress={() => setMeetupMenuTarget(item)}
                       hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
                       className="ml-2">
                       <MaterialIcons name="more-vert" size={18} color="#9ca3af" />
@@ -1259,6 +1284,26 @@ function MeetingTab({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      <AppToast visible={!!meetingToast} message={meetingToast} onHide={() => setMeetingToast('')} />
+      <AppConfirmModal
+        visible={!!deleteMeetupTarget}
+        title={`'${deleteMeetupTarget?.title}' 삭제`}
+        message="이 약속을 삭제하시겠어요?"
+        confirmText="삭제"
+        danger
+        onConfirm={confirmDeleteMeetup}
+        onCancel={() => setDeleteMeetupTarget(null)}
+      />
+      <AppActionSheet
+        visible={!!meetupMenuTarget}
+        title={meetupMenuTarget?.title}
+        options={[
+          {text: '수정', onPress: () => meetupMenuTarget && openEdit(meetupMenuTarget)},
+          {text: '삭제', style: 'destructive', onPress: () => meetupMenuTarget && handleDelete(meetupMenuTarget)},
+          {text: '취소', style: 'cancel'},
+        ]}
+        onClose={() => setMeetupMenuTarget(null)}
+      />
     </View>
   );
 }
@@ -1300,6 +1345,10 @@ function MemberManagementScreen({
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [memberToast, setMemberToast] = useState('');
+  const [kickTarget, setKickTarget] = useState<GroupMemberItem | null>(null);
+  const [roleChangeTarget, setRoleChangeTarget] = useState<GroupMemberItem | null>(null);
+  const [memberMenuTarget, setMemberMenuTarget] = useState<GroupMemberItem | null>(null);
 
   const load = async () => {
     try {
@@ -1310,7 +1359,7 @@ function MemberManagementScreen({
       setMembers(m);
       setApplications(a);
     } catch {
-      Alert.alert('오류', '데이터를 불러오지 못했어요.');
+      setMemberToast('데이터를 불러오지 못했어요.');
     } finally {
       setLoading(false);
     }
@@ -1326,7 +1375,7 @@ function MemberManagementScreen({
       const updated = await fetchGroupMembers(groupIdx);
       setMembers(updated);
     } catch (e: any) {
-      Alert.alert('오류', e.message);
+      setMemberToast(e.message ?? '승인에 실패했어요.');
     } finally {
       setActionLoading(null);
     }
@@ -1338,57 +1387,45 @@ function MemberManagementScreen({
       await rejectApplication(groupIdx, applicationIdx);
       setApplications(prev => prev.filter(a => a.applicationIdx !== applicationIdx));
     } catch (e: any) {
-      Alert.alert('오류', e.message);
+      setMemberToast(e.message ?? '거절에 실패했어요.');
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleKick = (target: GroupMemberItem) => {
-    Alert.alert(
-      '멤버 강퇴',
-      `멤버 #${target.userIdx}를 강퇴하시겠어요?`,
-      [
-        {text: '취소', style: 'cancel'},
-        {
-          text: '강퇴',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await kickMember(groupIdx, target.userIdx);
-              setMembers(prev => prev.filter(m => m.userIdx !== target.userIdx));
-            } catch (e: any) {
-              Alert.alert('오류', e.message);
-            }
-          },
-        },
-      ],
-    );
+    setKickTarget(target);
+  };
+
+  const confirmKick = async () => {
+    if (!kickTarget) return;
+    try {
+      await kickMember(groupIdx, kickTarget.userIdx);
+      setMembers(prev => prev.filter(m => m.userIdx !== kickTarget.userIdx));
+    } catch (e: any) {
+      setMemberToast(e.message ?? '강퇴에 실패했어요.');
+    } finally {
+      setKickTarget(null);
+    }
   };
 
   const handleRoleChange = (target: GroupMemberItem) => {
-    const newRole: GroupRole = target.role === 'MEMBER' ? 'MANAGER' : 'MEMBER';
-    const label = newRole === 'MANAGER' ? '운영진으로 변경' : '회원으로 변경';
-    Alert.alert(
-      '역할 변경',
-      `멤버 #${target.userIdx}를 ${ROLE_LABEL[newRole]}으로 변경하시겠어요?`,
-      [
-        {text: '취소', style: 'cancel'},
-        {
-          text: label,
-          onPress: async () => {
-            try {
-              await changeMemberRole(groupIdx, target.userIdx, newRole);
-              setMembers(prev =>
-                prev.map(m => m.userIdx === target.userIdx ? {...m, role: newRole} : m),
-              );
-            } catch (e: any) {
-              Alert.alert('오류', e.message);
-            }
-          },
-        },
-      ],
-    );
+    setRoleChangeTarget(target);
+  };
+
+  const confirmRoleChange = async () => {
+    if (!roleChangeTarget) return;
+    const newRole: GroupRole = roleChangeTarget.role === 'MEMBER' ? 'MANAGER' : 'MEMBER';
+    try {
+      await changeMemberRole(groupIdx, roleChangeTarget.userIdx, newRole);
+      setMembers(prev =>
+        prev.map(m => m.userIdx === roleChangeTarget.userIdx ? {...m, role: newRole} : m),
+      );
+    } catch (e: any) {
+      setMemberToast(e.message ?? '역할 변경에 실패했어요.');
+    } finally {
+      setRoleChangeTarget(null);
+    }
   };
 
   const canActOn = (target: GroupMemberItem) => {
@@ -1530,18 +1567,7 @@ function MemberManagementScreen({
                   <TouchableOpacity
                     onPress={() => {
                       if (showActions) {
-                        Alert.alert(
-                          `멤버 #${item.userIdx}`,
-                          '작업을 선택하세요',
-                          [
-                            {text: '취소', style: 'cancel'},
-                            {
-                              text: item.role === 'MEMBER' ? '운영진으로 변경' : '회원으로 변경',
-                              onPress: () => handleRoleChange(item),
-                            },
-                            {text: '강퇴', style: 'destructive', onPress: () => handleKick(item)},
-                          ],
-                        );
+                        setMemberMenuTarget(item);
                       } else {
                         handleKick(item);
                       }
@@ -1555,6 +1581,37 @@ function MemberManagementScreen({
           }}
         />
       )}
+      <AppToast visible={!!memberToast} message={memberToast} onHide={() => setMemberToast('')} />
+      <AppConfirmModal
+        visible={!!kickTarget}
+        title="멤버 강퇴"
+        message={kickTarget ? `멤버 #${kickTarget.userIdx}를 강퇴하시겠어요?` : undefined}
+        confirmText="강퇴"
+        danger
+        onConfirm={confirmKick}
+        onCancel={() => setKickTarget(null)}
+      />
+      <AppConfirmModal
+        visible={!!roleChangeTarget}
+        title="역할 변경"
+        message={roleChangeTarget ? `멤버 #${roleChangeTarget.userIdx}를 ${ROLE_LABEL[roleChangeTarget.role === 'MEMBER' ? 'MANAGER' : 'MEMBER']}으로 변경하시겠어요?` : undefined}
+        confirmText={roleChangeTarget?.role === 'MEMBER' ? '운영진으로 변경' : '회원으로 변경'}
+        onConfirm={confirmRoleChange}
+        onCancel={() => setRoleChangeTarget(null)}
+      />
+      <AppActionSheet
+        visible={!!memberMenuTarget}
+        title={memberMenuTarget ? `멤버 #${memberMenuTarget.userIdx}` : undefined}
+        options={[
+          {
+            text: memberMenuTarget?.role === 'MEMBER' ? '운영진으로 변경' : '회원으로 변경',
+            onPress: () => memberMenuTarget && handleRoleChange(memberMenuTarget),
+          },
+          {text: '강퇴', style: 'destructive', onPress: () => memberMenuTarget && handleKick(memberMenuTarget)},
+          {text: '취소', style: 'cancel'},
+        ]}
+        onClose={() => setMemberMenuTarget(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -1589,6 +1646,9 @@ export default function GroupDetailScreen({group, onBack}: Props) {
   const [editSubmitted, setEditSubmitted] = useState(false);
   const [editTagDuplicateError, setEditTagDuplicateError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mainToast, setMainToast] = useState('');
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
 
   const editMembersNum = Number(editMaxMembers);
   const editMaxOpLimit = editMaxMembers ? Math.floor(editMembersNum * 0.2) : 0;
@@ -1679,7 +1739,7 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       resetEditForm();
       setShowEditModal(false);
     } catch {
-      Alert.alert('오류', '수정에 실패했어요. 다시 시도해 주세요.');
+      setMainToast('수정에 실패했어요. 다시 시도해 주세요.');
     } finally {
       setSaving(false);
     }
@@ -1688,50 +1748,36 @@ export default function GroupDetailScreen({group, onBack}: Props) {
   // ── 탈퇴 / 삭제 ────────────────────────────────────────
   const handleLeave = () => {
     setShowMenu(false);
-    Alert.alert(
-      '모임 탈퇴',
-      `'${group.name}' 모임에서 탈퇴하시겠어요?`,
-      [
-        {text: '취소', style: 'cancel'},
-        {
-          text: '탈퇴',
-          style: 'destructive',
-          onPress: async () => {
-            if (!group.groupIdx) { onBack(); return; }
-            try {
-              await leaveGroup(group.groupIdx);
-              onBack();
-            } catch (e: any) {
-              Alert.alert('오류', e.message ?? '탈퇴에 실패했어요.');
-            }
-          },
-        },
-      ],
-    );
+    setConfirmLeave(true);
+  };
+
+  const confirmLeaveGroup = async () => {
+    if (!group.groupIdx) { onBack(); return; }
+    try {
+      await leaveGroup(group.groupIdx);
+      onBack();
+    } catch (e: any) {
+      setMainToast(e.message ?? '탈퇴에 실패했어요.');
+    } finally {
+      setConfirmLeave(false);
+    }
   };
 
   const handleDelete = () => {
     setShowMenu(false);
-    Alert.alert(
-      '모임 삭제',
-      `'${group.name}' 모임을 삭제하시겠어요?\n삭제 후에는 복구할 수 없어요.`,
-      [
-        {text: '취소', style: 'cancel'},
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            if (!group.groupIdx) { onBack(); return; }
-            try {
-              await deleteGroup(group.groupIdx);
-              onBack();
-            } catch (e: any) {
-              Alert.alert('오류', e.message ?? '삭제에 실패했어요.');
-            }
-          },
-        },
-      ],
-    );
+    setConfirmDeleteGroup(true);
+  };
+
+  const confirmDeleteGroupAction = async () => {
+    if (!group.groupIdx) { onBack(); return; }
+    try {
+      await deleteGroup(group.groupIdx);
+      onBack();
+    } catch (e: any) {
+      setMainToast(e.message ?? '삭제에 실패했어요.');
+    } finally {
+      setConfirmDeleteGroup(false);
+    }
   };
 
   const roleBadge = role === 'OWNER'
@@ -2093,6 +2139,25 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       {activeTab === '모임' && (
         <MeetingTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} role={role} />
       )}
+      <AppToast visible={!!mainToast} message={mainToast} onHide={() => setMainToast('')} />
+      <AppConfirmModal
+        visible={confirmLeave}
+        title="모임 탈퇴"
+        message={`'${group.name}' 모임에서 탈퇴하시겠어요?`}
+        confirmText="탈퇴"
+        danger
+        onConfirm={confirmLeaveGroup}
+        onCancel={() => setConfirmLeave(false)}
+      />
+      <AppConfirmModal
+        visible={confirmDeleteGroup}
+        title="모임 삭제"
+        message={`'${group.name}' 모임을 삭제하시겠어요?\n삭제 후에는 복구할 수 없어요.`}
+        confirmText="삭제"
+        danger
+        onConfirm={confirmDeleteGroupAction}
+        onCancel={() => setConfirmDeleteGroup(false)}
+      />
     </SafeAreaView>
   );
 }

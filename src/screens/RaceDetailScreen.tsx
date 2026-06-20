@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Image,
   Linking,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {AppToast} from '../components/AppToast';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -597,6 +597,7 @@ export default function RaceDetailScreen({route, navigation}: Props) {
   const [showLoginSheet, setShowLoginSheet] = useState(false);
   const [showCoursePicker, setShowCoursePicker] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [raceToast, setRaceToast] = useState('');
   const {handleLogin} = useLogin(() => setShowLoginSheet(false));
 
   const courses = race.course
@@ -626,7 +627,7 @@ export default function RaceDetailScreen({route, navigation}: Props) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.includes('401') && !msg.includes('403')) {
-        Alert.alert('등록 실패', msg);
+        setRaceToast(msg);
       }
     } finally {
       setAdding(false);
@@ -781,6 +782,7 @@ export default function RaceDetailScreen({route, navigation}: Props) {
           </>
         )}
       </ScrollView>
+      <AppToast visible={!!raceToast} message={raceToast} onHide={() => setRaceToast('')} />
     </SafeAreaView>
   );
 }

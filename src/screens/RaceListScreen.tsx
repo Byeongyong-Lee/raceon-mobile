@@ -11,7 +11,6 @@ import {useLogin} from '../hooks/useLogin';
 import {apiFetch} from '../services/apiClient';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   FlatList,
   Image,
@@ -20,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {AppConfirmModal} from '../components/AppConfirmModal';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import AdSlider from '../components/AdSlider';
@@ -153,16 +153,14 @@ export default function RaceListScreen() {
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const {handleLogin} = useLogin(() => setShowLoginSheet(false));
 
   useFocusEffect(
     React.useCallback(() => {
       const onBackPress = () => {
-        Alert.alert('앱 종료', '종료하시겠습니까?', [
-          {text: '취소', style: 'cancel'},
-          {text: '종료', style: 'destructive', onPress: () => BackHandler.exitApp()},
-        ]);
+        setShowExitConfirm(true);
         return true;
       };
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -237,6 +235,15 @@ export default function RaceListScreen() {
             </View>
           )
         }
+      />
+      <AppConfirmModal
+        visible={showExitConfirm}
+        title="앱 종료"
+        message="종료하시겠습니까?"
+        confirmText="종료"
+        danger
+        onConfirm={() => BackHandler.exitApp()}
+        onCancel={() => setShowExitConfirm(false)}
       />
     </SafeAreaView>
   );

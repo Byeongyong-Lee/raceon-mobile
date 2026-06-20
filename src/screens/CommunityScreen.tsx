@@ -1,6 +1,5 @@
 import React, {useState} from 'react';
 import {
-  Alert,
   ActivityIndicator,
   FlatList,
   Image,
@@ -13,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {AppToast} from '../components/AppToast';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {launchImageLibrary} from 'react-native-image-picker';
@@ -48,6 +48,7 @@ export default function CommunityScreen() {
   const [newMaxOperators, setNewMaxOperators] = useState('');
   const [newImageUri, setNewImageUri] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [communityToast, setCommunityToast] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [tagDuplicateError, setTagDuplicateError] = useState(false);
 
@@ -129,7 +130,7 @@ export default function CommunityScreen() {
       resetCreateForm();
       setShowCreateModal(false);
     } catch {
-      Alert.alert('오류', '모임 만들기에 실패했어요. 다시 시도해 주세요.');
+      setCommunityToast('모임 만들기에 실패했어요. 다시 시도해 주세요.');
     } finally {
       setCreating(false);
     }
@@ -599,7 +600,7 @@ export default function CommunityScreen() {
         onClose={() => setShowLoginSheet(false)}
         onLogin={handleLogin}
       />
-
+      <AppToast visible={!!communityToast} message={communityToast} onHide={() => setCommunityToast('')} />
     </SafeAreaView>
   );
 }
