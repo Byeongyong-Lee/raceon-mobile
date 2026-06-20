@@ -428,7 +428,7 @@ function BoardTab({
           <FlatList
             data={displayPosts}
             keyExtractor={item => String(item.boardIdx)}
-            contentContainerStyle={{padding: 16, paddingBottom: 80}}
+            contentContainerStyle={{paddingBottom: 80}}
             showsVerticalScrollIndicator={false}
             onEndReached={loadMore}
             onEndReachedThreshold={0.3}
@@ -446,37 +446,37 @@ function BoardTab({
                 <Text className="mt-1 text-xs text-gray-400">첫 번째 게시글을 작성해보세요!</Text>
               </View>
             }
-            renderItem={({item}) => (
+            renderItem={({item, index}) => (
               <TouchableOpacity
-                activeOpacity={0.75}
+                activeOpacity={0.7}
                 onPress={() => setSelectedPost(item)}
-                className="mb-3 rounded-2xl bg-white px-4 py-4"
-                style={{
-                  elevation: 1,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.05,
-                  shadowRadius: 6,
-                  shadowOffset: {width: 0, height: 1},
-                }}>
-                <View className="flex-row items-center" style={{gap: 6}}>
-                  {item.isNotice === 'Y' && (
-                    <View className="rounded-full bg-orange-100 px-2 py-0.5">
-                      <Text className="text-xs font-bold text-orange-600">공지</Text>
+                className="flex-row items-center bg-white px-4 py-3"
+                style={{borderBottomWidth: 1, borderBottomColor: '#f3f4f6'}}>
+                {/* 공지 뱃지 or 번호 */}
+                <View className="w-10 items-center">
+                  {item.isNotice === 'Y' ? (
+                    <View className="rounded bg-orange-500 px-1.5 py-0.5">
+                      <Text className="text-xs font-bold text-white">공지</Text>
                     </View>
+                  ) : (
+                    <Text className="text-xs text-gray-400">
+                      {displayPosts.length - index}
+                    </Text>
                   )}
-                  <Text
-                    className="flex-1 text-sm font-bold text-gray-900"
-                    numberOfLines={1}>
-                    {item.title}
-                  </Text>
                 </View>
-                <Text className="mt-1 text-xs text-gray-400" numberOfLines={2}>
-                  {item.content}
+                {/* 제목 */}
+                <Text
+                  className="flex-1 text-sm font-medium text-gray-900"
+                  numberOfLines={1}>
+                  {item.title}
                 </Text>
-                <View className="mt-2 flex-row items-center justify-between">
-                  <Text className="text-xs text-gray-400">{item.createDt?.slice(0, 10)}</Text>
+                {/* 글쓴이 · 일자 */}
+                <View className="ml-2 items-end" style={{gap: 2}}>
                   <Text className="text-xs text-gray-400">
                     {item.authorIdx === myUserIdx ? '나' : `멤버 #${item.authorIdx}`}
+                  </Text>
+                  <Text className="text-xs text-gray-300">
+                    {item.createDt?.slice(0, 10)}
                   </Text>
                 </View>
               </TouchableOpacity>
