@@ -90,13 +90,6 @@ export type MeetupParticipant = {
   updateDt: string;
 };
 
-export type ChatMessage = {
-  chatIdx: number;
-  senderIdx: number;
-  content: string;
-  messageType: 'TEXT' | 'IMAGE' | 'SYSTEM';
-  createDt: string;
-};
 
 export type BoardPost = {
   boardIdx: number;

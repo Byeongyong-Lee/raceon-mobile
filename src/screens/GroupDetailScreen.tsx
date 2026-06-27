@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Client} from '@stomp/stompjs';
+
 import Config from 'react-native-config';
 import {tokenStorage} from '../services/tokenStorage';
 import {
@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,7 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -41,7 +42,6 @@ import {
   fetchBoardComments,
   createBoardComment,
   deleteBoardComment,
-  fetchChatHistory,
   fetchMeetups,
   createMeetup,
   updateMeetup,
@@ -49,12 +49,12 @@ import {
   respondMeetup,
   fetchMeetupParticipants,
 } from '../services/groupApi';
-import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, ChatMessage, Meetup, MeetupParticipant, MeetupStatus} from '../types';
+import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, Meetup, MeetupParticipant, MeetupStatus} from '../types';
 import {AppToast} from '../components/AppToast';
 import {AppConfirmModal} from '../components/AppConfirmModal';
 import {AppActionSheet, SheetOption} from '../components/AppActionSheet';
 
-type TabType = '게시판' | '채팅' | '모임';
+type TabType = '게시판' | '모임';
 
 
 // ─────────────────────────────────────────
@@ -87,6 +87,10 @@ function PostDetailView({
   const [deleteCommentTarget, setDeleteCommentTarget] = useState<BoardComment | null>(null);
   const [postMenuVisible, setPostMenuVisible] = useState(false);
   const [postMenuOptions, setPostMenuOptions] = useState<SheetOption[]>([]);
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  const [kbHeight, setKbHeight] = useState(0);
+  const [inputBarH, setInputBarH] = useState(0);
+  const {bottom: bottomInset} = useSafeAreaInsets();
 
   const isAuthor = post.authorIdx === myUserIdx;
   const canManage = role === 'OWNER' || role === 'MANAGER';
@@ -97,6 +101,16 @@ function PostDetailView({
       .catch(() => {})
       .finally(() => setCommentsLoading(false));
   }, [post.boardIdx]);
+
+  React.useEffect(() => {
+    const tabBarHeight = 60 + bottomInset;
+    const show = Keyboard.addListener('keyboardDidShow', e => {
+      setKbHeight(Math.max(0, e.endCoordinates.height - tabBarHeight) + inputBarH);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({animated: true}), 100);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, [bottomInset, inputBarH]);
 
   const handleSubmitComment = async () => {
     if (!commentInput.trim() || submittingComment) return;
@@ -142,7 +156,7 @@ function PostDetailView({
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-gray-50" style={{paddingBottom: kbHeight}}>
       {/* 헤더 */}
       <View
         className="flex-row items-center bg-white px-4 py-3"
@@ -160,10 +174,7 @@ function PostDetailView({
         )}
       </View>
 
-      <KeyboardAvoidingView
-        behavior="padding"
-        className="flex-1">
-        <ScrollView contentContainerStyle={{paddingBottom: 16}} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} className="flex-1" contentContainerStyle={{paddingBottom: 16}} showsVerticalScrollIndicator={false}>
           {/* 게시글 본문 */}
           <View
             className="bg-white px-4 py-5"
@@ -236,6 +247,7 @@ function PostDetailView({
 
         {/* 댓글 입력 */}
         <View
+          onLayout={e => setInputBarH(e.nativeEvent.layout.height)}
           className="flex-row items-center border-t border-gray-100 bg-white px-3 py-2"
           style={{gap: 8}}>
           <TextInput
@@ -259,7 +271,6 @@ function PostDetailView({
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
       <AppToast visible={!!toastMsg} message={toastMsg} onHide={() => setToastMsg('')} />
       <AppConfirmModal
         visible={!!deleteCommentTarget}
@@ -607,204 +618,6 @@ function BoardTab({
   );
 }
 
-// ─────────────────────────────────────────
-// 채팅 탭
-// ─────────────────────────────────────────
-function ChatTab({groupIdx, myUserIdx}: {groupIdx: number; myUserIdx: number}) {
-  // messages: DESC 순 (최신이 index 0) — inverted FlatList에 맞춤
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [connected, setConnected] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [messageInput, setMessageInput] = useState('');
-  const stompRef = React.useRef<Client | null>(null);
-
-  React.useEffect(() => {
-    let mounted = true;
-
-    const init = async () => {
-      // 1) 채팅 기록 로드 (DESC 순)
-      try {
-        const history = await fetchChatHistory(groupIdx);
-        if (mounted) {
-          setMessages(history);
-          setHasMore(history.length >= 50);
-        }
-      } catch {
-        // 기록 없어도 연결은 진행
-      } finally {
-        if (mounted) setLoading(false);
-      }
-
-      // 2) STOMP 연결
-      const token = await tokenStorage.get();
-      const baseUrl = Config.API_BASE_URL ?? 'http://localhost:28300';
-      const wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws/native';
-
-      const client = new Client({
-        webSocketFactory: () => new WebSocket(wsUrl),
-        connectHeaders: token ? {Authorization: `Bearer ${token}`} : {},
-        reconnectDelay: 5000,
-        onConnect: () => {
-          if (!mounted) return;
-          setConnected(true);
-          client.subscribe(`/sub/groups/${groupIdx}/chat`, frame => {
-            if (!mounted) return;
-            const msg: ChatMessage = JSON.parse(frame.body);
-            setMessages(prev => [msg, ...prev]); // 최신을 앞에
-          });
-        },
-        onDisconnect: () => { if (mounted) setConnected(false); },
-        onStompError: () => { if (mounted) setConnected(false); },
-        onWebSocketError: () => { if (mounted) setConnected(false); },
-      });
-      client.activate();
-      if (mounted) stompRef.current = client;
-    };
-
-    init();
-
-    return () => {
-      mounted = false;
-      stompRef.current?.deactivate();
-      stompRef.current = null;
-    };
-  }, []);
-
-  // 오래된 메시지 더 불러오기 (inverted FlatList에서 onEndReached = 위 끝에 도달)
-  const loadMore = async () => {
-    if (!hasMore || loadingMore || messages.length === 0) return;
-    const oldest = messages[messages.length - 1]; // DESC에서 마지막 = 가장 오래됨
-    setLoadingMore(true);
-    try {
-      const older = await fetchChatHistory(groupIdx, oldest.chatIdx);
-      if (older.length === 0) {
-        setHasMore(false);
-      } else {
-        setMessages(prev => [...prev, ...older]);
-        setHasMore(older.length >= 50);
-      }
-    } catch {}
-    finally { setLoadingMore(false); }
-  };
-
-  const sendMessage = () => {
-    const text = messageInput.trim();
-    if (!text || !stompRef.current?.connected) return;
-    stompRef.current.publish({
-      destination: `/pub/groups/${groupIdx}/chat`,
-      body: JSON.stringify({content: text, messageType: 'TEXT'}),
-    });
-    setMessageInput('');
-  };
-
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#f97316" />
-      </View>
-    );
-  }
-
-  return (
-    <KeyboardAvoidingView
-      behavior="padding"
-      className="flex-1">
-      {!connected && (
-        <View
-          className="flex-row items-center justify-center bg-gray-50 py-1.5"
-          style={{gap: 6}}>
-          <ActivityIndicator size="small" color="#9ca3af" />
-          <Text className="text-xs text-gray-400">채팅 서버에 연결 중...</Text>
-        </View>
-      )}
-
-      <FlatList
-        inverted
-        data={messages}
-        keyExtractor={item => String(item.chatIdx)}
-        contentContainerStyle={{padding: 16}}
-        showsVerticalScrollIndicator={false}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={
-          loadingMore ? (
-            <ActivityIndicator color="#f97316" style={{marginVertical: 12}} />
-          ) : null
-        }
-        ListEmptyComponent={
-          <View className="items-center py-10">
-            <MaterialIcons name="chat" size={48} color="#e5e7eb" />
-            <Text className="mt-3 text-sm text-gray-400">첫 번째 메시지를 보내보세요!</Text>
-          </View>
-        }
-        renderItem={({item}) => {
-          const isMine = item.senderIdx === myUserIdx;
-          const timeStr = item.createDt?.slice(11, 16) ?? '';
-          return isMine ? (
-            <View className="mb-3 flex-row justify-end">
-              <View>
-                <View
-                  className="rounded-2xl rounded-tr-sm bg-orange-500 px-4 py-2"
-                  style={{maxWidth: 240}}>
-                  <Text className="text-sm text-white">{item.content}</Text>
-                </View>
-                <Text className="mt-0.5 text-right text-xs text-gray-400">{timeStr}</Text>
-              </View>
-            </View>
-          ) : (
-            <View className="mb-3 flex-row items-end" style={{gap: 8}}>
-              <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-200">
-                <Text className="text-xs font-bold text-gray-600">
-                  {String(item.senderIdx).slice(-2)}
-                </Text>
-              </View>
-              <View>
-                <Text className="mb-1 text-xs text-gray-400">멤버 #{item.senderIdx}</Text>
-                <View
-                  className="rounded-2xl rounded-tl-sm bg-white px-4 py-2"
-                  style={{
-                    maxWidth: 240,
-                    elevation: 1,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.05,
-                    shadowRadius: 4,
-                    shadowOffset: {width: 0, height: 1},
-                  }}>
-                  <Text className="text-sm text-gray-800">{item.content}</Text>
-                </View>
-                <Text className="mt-0.5 text-xs text-gray-400">{timeStr}</Text>
-              </View>
-            </View>
-          );
-        }}
-      />
-
-      <View
-        className="flex-row items-center border-t border-gray-100 bg-white px-3 py-2"
-        style={{gap: 8}}>
-        <TextInput
-          value={messageInput}
-          onChangeText={setMessageInput}
-          placeholder={connected ? '메시지 입력' : '연결 중...'}
-          placeholderTextColor="#9ca3af"
-          editable={connected}
-          className="flex-1 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-900"
-          returnKeyType="send"
-          onSubmitEditing={sendMessage}
-        />
-        <TouchableOpacity
-          onPress={sendMessage}
-          disabled={!connected}
-          className="h-9 w-9 items-center justify-center rounded-full"
-          style={{backgroundColor: connected ? '#f97316' : '#e5e7eb'}}>
-          <MaterialIcons name="send" size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
-}
 
 // ─────────────────────────────────────────
 // 모임 탭
@@ -1682,7 +1495,7 @@ export default function GroupDetailScreen({group, onBack}: Props) {
     );
   }
 
-  const TABS: TabType[] = ['게시판', '채팅', '모임'];
+  const TABS: TabType[] = ['게시판', '모임'];
 
   const openEditModal = () => {
     setEditName(group.name);
@@ -2133,9 +1946,7 @@ export default function GroupDetailScreen({group, onBack}: Props) {
       {activeTab === '게시판' && (
         <BoardTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} role={role} />
       )}
-      {activeTab === '채팅' && (
-        <ChatTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} />
-      )}
+
       {activeTab === '모임' && (
         <MeetingTab groupIdx={group.groupIdx!} myUserIdx={myUserIdx} role={role} />
       )}

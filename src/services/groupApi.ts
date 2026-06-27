@@ -1,7 +1,7 @@
 import Config from 'react-native-config';
 import {apiFetch} from './apiClient';
 import {tokenStorage} from './tokenStorage';
-import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole, BoardPost, BoardComment, ChatMessage, Meetup, MeetupParticipant, MeetupStatus} from '../types';
+import {GroupResponse, GroupMemberItem, ApplicationItem, ApplicationStatus, GroupRole, BoardPost, BoardComment, Meetup, MeetupParticipant, MeetupStatus} from '../types';
 
 const BASE_URL = Config.API_BASE_URL ?? 'http://localhost:28300';
 
@@ -264,19 +264,6 @@ export async function fetchMeetupParticipants(
   return json.data ?? [];
 }
 
-// ── 채팅 기록 ─────────────────────────────────────────────
-export async function fetchChatHistory(
-  groupIdx: number,
-  cursor?: number,
-): Promise<ChatMessage[]> {
-  const qs = new URLSearchParams({size: '50'});
-  if (cursor != null) qs.append('cursor', String(cursor));
-  const json = await apiFetch<ApiResult<ChatMessage[]>>(
-    `/api/groups/${groupIdx}/chat/messages?${qs}`,
-  );
-  if (!json.success) throw new Error(json.message ?? '서버 오류');
-  return json.data ?? [];
-}
 
 // ── 게시판 ────────────────────────────────────────────────
 type SpringPage<T> = {content: T[]; last: boolean; totalElements: number; number: number};
