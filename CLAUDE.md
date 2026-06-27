@@ -25,7 +25,6 @@ React Native CLI 프로젝트 (raceon-mobile)
 - **cross-env**: Windows 호환 환경변수 설정 (npm 스크립트에서 `ENVFILE` 전달 시 사용)
 - **@react-native-async-storage/async-storage**: JWT 토큰 영구 저장
 - **react-native-image-picker**: 갤러리에서 이미지 선택 (기록증 업로드)
-- **@stomp/stompjs**: STOMP over WebSocket 클라이언트 — 모임 채팅 실시간 송수신
 - **react-native-bootsplash**: 앱 아이콘 및 스플래시 스크린 관리 — 네이티브 splash 표시 후 JS에서 `BootSplash.hide()` 호출로 제거
 
 ## 프로젝트 구조
@@ -51,7 +50,7 @@ raceon-mobile/
 │   │   ├── apiClient.ts             # Bearer 토큰 자동 첨부 fetch 래퍼
 │   │   ├── areasApi.ts              # GET /api/areas — 행정구역 조회 (인증 불필요)
 │   │   ├── authApi.ts               # POST /api/auth/{provider} — JWT 발급
-│   │   ├── groupApi.ts              # 모임 CRUD·멤버·신청·게시판·댓글·채팅·약속 전체 API
+│   │   ├── groupApi.ts              # 모임 CRUD·멤버·신청·게시판·댓글·약속 전체 API
 │   │   ├── tokenStorage.ts          # AsyncStorage 기반 JWT 저장/조회/삭제
 │   │   └── userRaceApi.ts           # GET·POST·DELETE /api/user-races — 내 대회 서버 연동
 │   ├── navigation/
@@ -61,7 +60,7 @@ raceon-mobile/
 │   │   ├── RaceListScreen.tsx       # 홈 화면 (대회 목록 + D-day)
 │   │   ├── RaceDetailScreen.tsx     # 대회 상세 (정보·지도·내 대회 추가)
 │   │   ├── CommunityScreen.tsx      # 내 모임 화면 (모임 목록·만들기·코드 참가)
-│   │   ├── GroupDetailScreen.tsx    # 모임 상세 (게시판·채팅·모임 탭)
+│   │   ├── GroupDetailScreen.tsx    # 모임 상세 (게시판·모임 탭)
 │   │   ├── GroupListScreen.tsx      # 모임 목록 화면 (전체 모임 탐색·검색·참가)
 │   │   ├── MyRacesScreen.tsx        # 내 대회 화면
 │   │   └── SettingsScreen.tsx       # 설정 화면
@@ -129,7 +128,7 @@ npm run test
 | 홈 | `src/screens/RaceListScreen.tsx` | 마라톤 대회 목록 + D-day | 2026-06-06 |
 | 모임 목록 | `src/screens/GroupListScreen.tsx` | 전체 모임 탐색·검색·지역 필터·가입 신청 (서버 연동) | 2026-06-15 |
 | 내 모임 | `src/screens/CommunityScreen.tsx` | 모임 목록·만들기·코드 참가 | 2026-06-12 |
-| 모임 상세 | `src/screens/GroupDetailScreen.tsx` | 게시판(CRUD·공지·댓글)·채팅(STOMP 실시간)·약속 탭 (서버 연동) | 2026-06-12 |
+| 모임 상세 | `src/screens/GroupDetailScreen.tsx` | 게시판(CRUD·공지·댓글)·약속 탭 (서버 연동) | 2026-06-12 |
 | 내 대회 | `src/screens/MyRacesScreen.tsx` | 신청한 대회 관리 | 2026-06-06 |
 | 대회 상세 | `src/screens/RaceDetailScreen.tsx` | 대회 상세 정보·지도 연결·내 대회 추가 | 2026-06-09 |
 | 설정 | `src/screens/SettingsScreen.tsx` | 프로필·로그아웃·앱 정보 | 2026-06-08 |
