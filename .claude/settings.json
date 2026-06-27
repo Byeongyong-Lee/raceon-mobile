@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NonInteractive -File .claude/hooks/update-claude-md.ps1",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}
