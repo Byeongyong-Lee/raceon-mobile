@@ -53,6 +53,7 @@ import {GroupMemberItem, ApplicationItem, GroupRole, BoardPost, BoardComment, Me
 import {AppToast} from '../components/AppToast';
 import {AppConfirmModal} from '../components/AppConfirmModal';
 import {AppActionSheet, SheetOption} from '../components/AppActionSheet';
+import {MeetupDateTimePicker} from '../components/MeetupDateTimePicker';
 
 type TabType = '게시판' | '모임';
 
@@ -665,6 +666,7 @@ function MeetingTab({
   const [formDesc, setFormDesc] = useState('');
   const [formDatetime, setFormDatetime] = useState('');
   const [formLocation, setFormLocation] = useState('');
+  const [formKey, setFormKey] = useState(0); // 모달 열 때마다 날짜·시간 선택기 초기화용
 
   const canManage = role === 'OWNER' || role === 'MANAGER';
 
@@ -729,6 +731,7 @@ function MeetingTab({
     setFormDesc('');
     setFormDatetime('');
     setFormLocation('');
+    setFormKey(k => k + 1);
     setShowModal(true);
   };
 
@@ -736,14 +739,15 @@ function MeetingTab({
     setEditingMeetup(m);
     setFormTitle(m.title);
     setFormDesc(m.description ?? '');
-    setFormDatetime(m.meetupDt?.slice(0, 16).replace('T', ' ') ?? '');
+    setFormDatetime(m.meetupDt?.slice(0, 16) ?? '');
     setFormLocation(m.location);
+    setFormKey(k => k + 1);
     setShowModal(true);
   };
 
   const handleSubmit = async () => {
     if (!formTitle.trim() || !formDatetime.trim() || !formLocation.trim() || submitting) return;
-    const meetupDt = formDatetime.trim().replace(' ', 'T');
+    const meetupDt = formDatetime.trim();
     setSubmitting(true);
     try {
       const params = {
@@ -1014,13 +1018,10 @@ function MeetingTab({
               <Text className="mb-1 text-sm font-semibold text-gray-700">
                 날짜·시간 <Text className="text-orange-500">*</Text>
               </Text>
-              <TextInput
+              <MeetupDateTimePicker
+                key={formKey}
                 value={formDatetime}
-                onChangeText={setFormDatetime}
-                placeholder="예) 2026-06-22 07:00"
-                placeholderTextColor="#9ca3af"
-                className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-900"
-                style={{borderWidth: 1, borderColor: '#e5e7eb'}}
+                onChange={setFormDatetime}
               />
               <Text className="mb-4 mt-1 text-xs text-gray-400">
                 오늘로부터 10일 이내 날짜만 설정할 수 있어요

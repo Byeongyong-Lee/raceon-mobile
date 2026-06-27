@@ -39,6 +39,7 @@ raceon-mobile/
 │   │   ├── CourseBadges.tsx         # 코스 배지 (RaceCard·RaceDetail 공유)
 │   │   ├── LoginSheet.tsx           # 소셜 로그인 바텀시트
 │   │   ├── RaceCard.tsx             # 대회 카드
+│   │   ├── MeetupDateTimePicker.tsx # 약속 날짜(캘린더)·시간(오전/오후·시·분) 선택기
 │   │   └── YearMonthPicker.tsx      # 연/월 선택기
 │   ├── context/
 │   │   ├── AreaContext.tsx           # 행정구역 전역 상태 (앱 시작 시 level=1 시도 목록 fetch)
