@@ -33,19 +33,19 @@ export type AuthResponse = {
 };
 
 export async function getMe(token: string): Promise<AuthUser> {
-  const res = await fetch(`${BASE_URL}/api/auth/me`, {
+  const res = await fetch(`${BASE_URL}/api/users/me`, {
     headers: {Authorization: `Bearer ${token}`},
   });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
-  const json: {success: boolean; data: {userId: number; nickname: string; profileImage: string | null}; message: string | null} =
+  const json: {success: boolean; data: {userIdx: number; nickname: string; profileImage: string | null}; message: string | null} =
     await res.json();
   if (!json.success) {
     throw new Error(json.message ?? '사용자 조회 실패');
   }
   return {
-    id: String(json.data.userId),
+    id: String(json.data.userIdx),
     name: json.data.nickname,
     imageUrl: json.data.profileImage,
   };
